@@ -1,0 +1,2 @@
+# Syngine Studio
+Syngine Studio is the visual editor for Syngine, letting users create and edit levels, view assets, make materials, and game scripts, all in the same powerful program, running concurrently with your Syngine game.
