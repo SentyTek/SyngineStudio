@@ -1,0 +1,9 @@
+build/
+compile_commands.json
+.cache/
+.vscode/
+.xcode/
+*.xcodeproj
+*.xcworkspace
+.clangd
+.DS_Store
