@@ -10,4 +10,5 @@ SyngineGame(${EXECUTABLE_NAME}
     SOURCES
         src/main.cpp
         src/Editor.cpp
+        src/UI.cpp
 )

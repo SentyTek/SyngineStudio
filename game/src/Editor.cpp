@@ -87,6 +87,7 @@ void Editor::HandleMouseMovement(float x, float y) {
         }
 
         editorCamera->SetAngles(yaw, pitch);
+        Syngine::Window::SetMousePosition(editorState.mousePos);
     }
 }
 
@@ -114,6 +115,7 @@ void Editor::HandleRMouseButtonDown() {
         editorState.rmbHeld  = true;
         editorState.mousePos = Syngine::Window::GetMousePosition();
         Syngine::Window::SetMouseCursorVisible(false);
+        Syngine::Core::mouseCaptureOverride = true;
     }
 };
 
@@ -123,6 +125,7 @@ void Editor::HandleRMouseButtonUp() {
         Syngine::Window::SetMousePosition(editorState.mousePos);
 
         Syngine::Window::SetMouseCursorVisible(true);
+        Syngine::Core::mouseCaptureOverride = false;
     }
 };
 

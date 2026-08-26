@@ -7,6 +7,8 @@
 // ╰──────────────────────────────────────╯
 
 #pragma once
+#include "Syngine/GameObjects/Components/MeshComponent.h"
+#include "Syngine/GameObjects/Components/TransformComponent.h"
 #include <Syngine/Syngine.h>
 
 using namespace Syngine;
@@ -21,9 +23,14 @@ class DefaultScene {
         const sm::Vec3 initialSunDirection =
             sm::Vec3(45.0f, 45.0f, 0.0f).toRads();
         const sm::Vec3 initialSunColor(1.0f, 0.956f, 0.839f);
-        sun = &GameObjectRegistry::CreateGameObject("sun", "default");
+        sun = &GameObjectRegistry::CreateGameObject("sun");
         sun->AddComponent<Syngine::DirectionalLightComponent>(
             initialSunDirection, initialSunColor, 1.0f);
+
+        auto mug = &GameObjectRegistry::CreateGameObject("mug");
+        auto t   = mug->AddComponent<TransformComponent>();
+        t->SetPosition(Vector3(0.f, 0.f, 5.f));
+        mug->AddComponent<MeshComponent>("meshes/meshes.spk", "mug.glb", false);
     };
 
     inline void SunDirLeft() {

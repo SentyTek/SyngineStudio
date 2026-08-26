@@ -10,7 +10,7 @@
 
 #include "DefaultScene.h"
 #include "Editor.h"
-#include "Syngine/Core/Input.h"
+#include "UI.hpp"
 
 #include <string>
 
@@ -37,6 +37,10 @@ int AppMain(int argc, char* argv[]) {
     Editor::MakeCamera();
     DefaultScene defaultScene;
     defaultScene.Load();
+    SynEditor::UI editorUi;
+
+    scl::path imguiini("imgui.ini");
+    editorUi.ConfigFileExists = imguiini.exists();
 
     Editor::MovementBindings movementBindings = {
         .forwards = InputAction("editor.movement.forwards",
@@ -104,6 +108,9 @@ int AppMain(int argc, char* argv[]) {
     InputAction::RegisterScrollEvent(Editor::HandleMouseScroll);
 
     Renderer::SetActiveCamera(Editor::editorCamera);
+
+    engine.AddFrameCallback(
+        [&editorUi](int frameNum) { editorUi.Draw(frameNum); });
 
     Logger::Info("Starting event loop", true);
     while (engine.IsRunning()) {
