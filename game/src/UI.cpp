@@ -10,27 +10,104 @@
 #include <Syngine/Syngine.h>
 
 #include <SDL3/SDL.h>
-
+#include "Syngine/GameObjects/Component.h"
 #include "bgfx/bgfx.h"
+
 #include "imgui/backends/imgui_impl_bgfx.hpp"
 #include "imgui/imgui_internal.h"
 
 #include <lib/imgui/imgui.h>
 
+#include <string>
+#include <unordered_map>
+
 #define FCBT_TO_PTR(x) reinterpret_cast<void*>(static_cast<std::uintptr_t>(x))
 #define PTR_TO_FCBT(x)                                                         \
     static_cast<UI::FileCallbackType>(reinterpret_cast<std::uintptr_t>(x))
-
 namespace SynEditor {
 
 bool UI::m_layoutBuilt    = false;
 bool UI::ConfigFileExists = false;
+
+void SDLCALL FileDialogCallback(void*              userdata,
+                                const char* const* filelist,
+                                int                filter) {
+    if (filelist == nullptr) {
+        Syngine::Logger::LogF(Syngine::LogLevel::ERR,
+                              false,
+                              "Open scene dialog was canceled or failed: %s",
+                              SDL_GetError());
+        return;
+    }
+
+    if (!filelist[0]) {
+        Syngine::Logger::Info("File dialog was cancelled", true);
+        return;
+    }
+
+    UI::FileCallbackType type = PTR_TO_FCBT(userdata);
+
+    Syngine::Logger::Info("File dialog callback type: " +
+                              std::to_string(static_cast<int>(type)),
+                          true);
+
+    for (const char* const* file = filelist; *file != nullptr; ++file) {
+        Syngine::Logger::LogF(
+            Syngine::LogLevel::INFO, false, "Selected scene: %s", *file);
+        // Load the selected scene here.
+    }
+}
+
+void UI::_DrawHierarchyNode(Syngine::GameObject* object) {
+    if (!object) return;
+
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnDoubleClick |
+                                   ImGuiTreeNodeFlags_SpanAvailWidth |
+                                   ImGuiTreeNodeFlags_OpenOnArrow;
+
+    if (m_selectedObject == object) {
+        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+    }
+    if (object->GetChildren().empty()) {
+        nodeFlags |= ImGuiTreeNodeFlags_Leaf;
+    }
+
+    bool open = ImGui::TreeNodeEx(std::to_string(object->GetID()).c_str(),
+                                  nodeFlags,
+                                  "%s",
+                                  object->name.c_str());
+
+    if (ImGui::IsItemFocused()) {
+        m_selectedObject = object;
+    }
+
+    if (open) {
+        for (Syngine::GameObject* child : object->GetChildren()) {
+            _DrawHierarchyNode(child);
+        }
+        ImGui::TreePop();
+    }
+}
+
+void UI::_RegisterInspectorWidgets() {
+    InspectorRegistry::RegisterInspectorFunction(
+        Syngine::DefaultComponents::SYN_COMPONENT_TRANSFORM,
+        InspectorWidgets::DrawTransformWidget);
+    InspectorRegistry::RegisterInspectorFunction(
+        Syngine::DefaultComponents::SYN_COMPONENT_LIGHT_DIRECTIONAL,
+        InspectorWidgets::DrawDirectionalLightWidget);
+}
 
 void UI::Draw(int frameNum) {
     if (!bgfx::isValid(m_logoTexture)) {
         m_logoTexture = Syngine::UI::Debug::ImGui_ImplBgfx::LoadTex(
             "imgs/imgs.spk", "builtin/Syngine_Logo_Banner_Rounded.png");
     }
+
+    if (frameNum == 1) {
+        _RegisterInspectorWidgets();
+    }
+
     DrawMainMenuBar();
     DrawMainDockspace();
 
@@ -98,35 +175,6 @@ void UI::DrawMainDockspace() {
     ImGui::DockSpace(dockSpace, ImVec2(0, 0), 0);
 
     ImGui::End();
-}
-
-void SDLCALL FileDialogCallback(void*              userdata,
-                                const char* const* filelist,
-                                int                filter) {
-    if (filelist == nullptr) {
-        Syngine::Logger::LogF(Syngine::LogLevel::ERR,
-                              false,
-                              "Open scene dialog was canceled or failed: %s",
-                              SDL_GetError());
-        return;
-    }
-
-    if (!filelist[0]) {
-        Syngine::Logger::Info("File dialog was cancelled", true);
-        return;
-    }
-
-    UI::FileCallbackType type = PTR_TO_FCBT(userdata);
-
-    Syngine::Logger::Info("File dialog callback type: " +
-                              std::to_string(static_cast<int>(type)),
-                          true);
-
-    for (const char* const* file = filelist; *file != nullptr; ++file) {
-        Syngine::Logger::LogF(
-            Syngine::LogLevel::INFO, false, "Selected scene: %s", *file);
-        // Load the selected scene here.
-    }
 }
 
 void UI::DrawMainMenuBar() {
@@ -274,13 +322,33 @@ void UI::DrawScene() {
 
 void UI::DrawHierarchy() {
     ImGui::Begin("Hierarchy", nullptr, m_wFlags);
-    ImGui::Text("Hierarchy content goes here.");
+
+    // Figure out root objects
+    const std::unordered_map<int, Syngine::GameObject>& allObjects =
+        Syngine::GameObjectRegistry::GetAllGameObjects();
+    std::vector<const Syngine::GameObject*> rootObjects;
+    for (auto& [id, object] : allObjects) {
+        if (!object.GetParent()) {
+            rootObjects.push_back(&object);
+        }
+    }
+
+    for (const Syngine::GameObject* rootObject : rootObjects) {
+        _DrawHierarchyNode(const_cast<Syngine::GameObject*>(rootObject));
+    }
+
     ImGui::End();
 }
 
 void UI::DrawInspector() {
     ImGui::Begin("Inspector", nullptr, m_wFlags);
-    ImGui::Text("Inspector content goes here.");
+
+    if (m_selectedObject) {
+        SynEditor::InspectorRegistry::Draw(*m_selectedObject);
+    } else {
+        ImGui::Text("No object selected.");
+    }
+
     ImGui::End();
 }
 

@@ -122,7 +122,9 @@ void Editor::HandleRMouseButtonDown() {
 void Editor::HandleRMouseButtonUp() {
     if (!editorState.simulate) {
         editorState.rmbHeld = false;
-        Syngine::Window::SetMousePosition(editorState.mousePos);
+        if (Syngine::Core::viewportHovered) {
+            Syngine::Window::SetMousePosition(editorState.mousePos);
+        }
 
         Syngine::Window::SetMouseCursorVisible(true);
         Syngine::Core::mouseCaptureOverride = false;

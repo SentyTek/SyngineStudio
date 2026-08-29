@@ -14,6 +14,7 @@
 #include <Syngine/Core/Core.h>
 
 #include <lib/imgui/imgui.h>
+#include "InspectorWidgets.inl"
 
 namespace SynEditor {
 
@@ -22,7 +23,11 @@ class UI {
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
     static bool m_layoutBuilt;
 
-    bgfx::TextureHandle m_logoTexture = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle  m_logoTexture    = BGFX_INVALID_HANDLE;
+    Syngine::GameObject* m_selectedObject = nullptr;
+
+    void _DrawHierarchyNode(Syngine::GameObject* object);
+    void _RegisterInspectorWidgets();
 
   public:
     void Draw(int frameNum);
