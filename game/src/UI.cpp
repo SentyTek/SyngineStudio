@@ -7,10 +7,19 @@
 // ╰──────────────────────────────────────╯
 
 #include "UI.hpp"
+#include <Syngine/Syngine.h>
+
+#include <SDL3/SDL.h>
+
+#include "bgfx/bgfx.h"
 #include "imgui/backends/imgui_impl_bgfx.hpp"
 #include "imgui/imgui_internal.h"
 
 #include <lib/imgui/imgui.h>
+
+#define FCBT_TO_PTR(x) reinterpret_cast<void*>(static_cast<std::uintptr_t>(x))
+#define PTR_TO_FCBT(x)                                                         \
+    static_cast<UI::FileCallbackType>(reinterpret_cast<std::uintptr_t>(x))
 
 namespace SynEditor {
 
@@ -18,14 +27,18 @@ bool UI::m_layoutBuilt    = false;
 bool UI::ConfigFileExists = false;
 
 void UI::Draw(int frameNum) {
+    if (!bgfx::isValid(m_logoTexture)) {
+        m_logoTexture = Syngine::UI::Debug::ImGui_ImplBgfx::LoadTex(
+            "imgs/imgs.spk", "builtin/Syngine_Logo_Banner_Rounded.png");
+    }
     DrawMainMenuBar();
     DrawMainDockspace();
 
     DrawScene();
     DrawHierarchy();
     DrawInspector();
-    DrawAssets();
     DrawConsole();
+    DrawAssets();
 }
 
 void UI::BuildDefaultLayout(ImGuiID dockSpace) {
@@ -49,12 +62,12 @@ void UI::BuildDefaultLayout(ImGuiID dockSpace) {
     ImGui::DockBuilderSplitNode(
         dockSpace, ImGuiDir_Right, 0.25f, &right, &dockSpace);
     ImGui::DockBuilderSplitNode(
-        dockSpace, ImGuiDir_Down, 0.25f, &bottom, &dockSpace);
+        dockSpace, ImGuiDir_Down, 0.35f, &bottom, &dockSpace);
 
     ImGui::DockBuilderDockWindow("Hierarchy", left);
     ImGui::DockBuilderDockWindow("Inspector", right);
-    ImGui::DockBuilderDockWindow("Assets", bottom);
     ImGui::DockBuilderDockWindow("Console", bottom);
+    ImGui::DockBuilderDockWindow("Assets", bottom);
     ImGui::DockBuilderDockWindow("Scene", dockSpace);
 
     ImGui::DockBuilderFinish(dockSpace);
@@ -87,6 +100,35 @@ void UI::DrawMainDockspace() {
     ImGui::End();
 }
 
+void SDLCALL FileDialogCallback(void*              userdata,
+                                const char* const* filelist,
+                                int                filter) {
+    if (filelist == nullptr) {
+        Syngine::Logger::LogF(Syngine::LogLevel::ERR,
+                              false,
+                              "Open scene dialog was canceled or failed: %s",
+                              SDL_GetError());
+        return;
+    }
+
+    if (!filelist[0]) {
+        Syngine::Logger::Info("File dialog was cancelled", true);
+        return;
+    }
+
+    UI::FileCallbackType type = PTR_TO_FCBT(userdata);
+
+    Syngine::Logger::Info("File dialog callback type: " +
+                              std::to_string(static_cast<int>(type)),
+                          true);
+
+    for (const char* const* file = filelist; *file != nullptr; ++file) {
+        Syngine::Logger::LogF(
+            Syngine::LogLevel::INFO, false, "Selected scene: %s", *file);
+        // Load the selected scene here.
+    }
+}
+
 void UI::DrawMainMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
@@ -95,13 +137,33 @@ void UI::DrawMainMenuBar() {
             }
             if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) {
                 // Open Scene
+                const SDL_DialogFileFilter filters[] = { { "Scene Files",
+                                                           "scene" } };
+                SDL_ShowOpenFileDialog(
+                    FileDialogCallback,
+                    FCBT_TO_PTR(UI::FileCallbackType::OpenScene),
+                    Syngine::Window::_GetSDLWindow(),
+                    filters,
+                    SDL_arraysize(filters),
+                    nullptr,
+                    false);
             }
-            if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
+            if (ImGui::MenuItem("Save Scene...", "Ctrl+S")) {
                 // Save Scene
+                const SDL_DialogFileFilter filters[] = { { "Scene Files",
+                                                           "scene" } };
+                SDL_ShowSaveFileDialog(
+                    FileDialogCallback,
+                    FCBT_TO_PTR(UI::FileCallbackType::SaveScene),
+                    Syngine::Window::_GetSDLWindow(),
+                    filters,
+                    SDL_arraysize(filters),
+                    nullptr);
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Exit")) {
                 // Exit application
+                Syngine::Core::Quit();
             }
             ImGui::EndMenu();
         }
@@ -121,27 +183,56 @@ void UI::DrawMainMenuBar() {
         if (ImGui::BeginMenu("View")) {
             if (ImGui::MenuItem("Hierarchy")) {
                 // Toggle Hierarchy window
+                ImGui::SetWindowFocus("Hierarchy");
             }
             if (ImGui::MenuItem("Inspector")) {
                 // Toggle Inspector window
+                ImGui::SetWindowFocus("Inspector");
             }
             if (ImGui::MenuItem("Assets")) {
                 // Toggle Assets window
+                ImGui::SetWindowFocus("Assets");
             }
             if (ImGui::MenuItem("Console")) {
                 // Toggle Console window
+                ImGui::SetWindowFocus("Console");
             }
             if (ImGui::MenuItem("Scene")) {
                 // Toggle Scene window
+                ImGui::SetWindowFocus("Scene");
             }
             ImGui::EndMenu();
         }
 
+        bool openAbout = false;
         if (ImGui::BeginMenu("Help")) {
             if (ImGui::MenuItem("About")) {
-                // Show about dialog
+                openAbout = true;
             }
             ImGui::EndMenu();
+        }
+
+        if (openAbout) {
+            ImGui::OpenPopup("About");
+        }
+
+        if (ImGui::BeginPopup("About")) {
+            ImGui::Text("Syngine Studio\nVersion: %s",
+                        SYNGINE_STUDIO_VERSION_STRING);
+            ImGui::Separator();
+            ImGui::Text("Licensed under the MIT License");
+            ImGui::TextLinkOpenURL("GitHub",
+                                   "https://github.com/SentyTek/"
+                                   "SyngineStudio");
+            ImGui::Separator();
+            ImGui::Image(Syngine::UI::Debug::SImGui::ToImGui(m_logoTexture),
+                         ImVec2(600, 200));
+            ImGui::Text("© 2025-2026 SentyTek Software. All rights reserved.");
+
+            if (ImGui::Button("Close")) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
         ImGui::EndMainMenuBar();
     }
