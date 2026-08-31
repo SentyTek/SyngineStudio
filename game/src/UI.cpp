@@ -10,7 +10,12 @@
 #include <Syngine/Syngine.h>
 
 #include <SDL3/SDL.h>
-#include "Syngine/GameObjects/Component.h"
+#include "Syngine/GameObjects/Components/CameraComponent.h"
+#include "Syngine/GameObjects/Components/MeshComponent.h"
+#include "Syngine/GameObjects/Components/RigidbodyComponent.h"
+#include "Syngine/GameObjects/Components/TransformComponent.h"
+#include "Syngine/Math/Vector3.hpp"
+#include "Syngine/Scene/GameObjectRegistry.h"
 #include "bgfx/bgfx.h"
 
 #include "imgui/backends/imgui_impl_bgfx.hpp"
@@ -58,12 +63,41 @@ void SDLCALL FileDialogCallback(void*              userdata,
     }
 }
 
+// type 0 = empty, 2 = with mesh, 3 = with mesh & rigidbody
+// shape 0 = cube, 1 = sphere
+Syngine::GameObject& UI::_AddGameObject(int type, int shape) {
+    Syngine::GameObject& gameObject =
+        Syngine::GameObjectRegistry::CreateGameObject("GameObject");
+    gameObject.AddComponent<Syngine::TransformComponent>();
+    if (type > 1) {
+        if (shape == 0) {
+            gameObject.AddComponent<Syngine::MeshComponent>(
+                "meshes/meshes.spk", "cube.glb", false);
+        } else if (shape == 1) {
+            gameObject.AddComponent<Syngine::MeshComponent>(
+                "meshes/meshes.spk", "sphere.glb", false);
+        }
+    }
+    if (type > 2) {
+        Syngine::RigidbodyParameters params;
+        if (shape == 0) {
+            params.shape = Syngine::PhysicsShapes::BOX;
+        } else if (shape == 1) {
+            params.shape = Syngine::PhysicsShapes::SPHERE;
+        }
+        gameObject.AddComponent<Syngine::RigidbodyComponent>(params);
+    }
+    m_selectedObject = &gameObject;
+    return gameObject;
+}
+
 void UI::_DrawHierarchyNode(Syngine::GameObject* object) {
     if (!object) return;
 
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnDoubleClick |
                                    ImGuiTreeNodeFlags_SpanAvailWidth |
-                                   ImGuiTreeNodeFlags_OpenOnArrow;
+                                   ImGuiTreeNodeFlags_OpenOnArrow |
+                                   ImGuiTreeNodeFlags_DefaultOpen;
 
     if (m_selectedObject == object) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
@@ -77,10 +111,80 @@ void UI::_DrawHierarchyNode(Syngine::GameObject* object) {
                                   "%s",
                                   object->name.c_str());
 
-    if (ImGui::IsItemFocused()) {
+    if (ImGui::IsItemClicked()) {
         m_selectedObject = object;
     }
 
+    bool shouldOpenRenamePopup = false;
+    if (ImGui::BeginPopupContextItem("GameObjectHierarchyContextMenu")) {
+        if (ImGui::MenuItem("Add empty child")) {
+            object->AddChild(&_AddGameObject(0, -1));
+        }
+
+        if (ImGui::MenuItem("Rename")) {
+            shouldOpenRenamePopup = true;
+        }
+
+        if (ImGui::MenuItem("Delete")) {
+            Syngine::GameObjectRegistry::RemoveGameObject(object);
+            if (m_selectedObject == object) {
+                m_selectedObject = nullptr;
+            }
+        }
+        ImGui::EndPopup();
+    }
+
+    if (m_selectedObject == object && ImGui::IsKeyPressed(ImGuiKey_F2) &&
+        ImGui::IsItemFocused()) {
+        shouldOpenRenamePopup = true;
+    }
+
+    if (shouldOpenRenamePopup) {
+        ImGui::OpenPopup("RenameGameObjectPopup");
+    }
+
+    if (ImGui::BeginPopup("RenameGameObjectPopup")) {
+        static char newName[128] = "";
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::SetKeyboardFocusHere();
+        }
+        ImGui::InputTextWithHint(
+            "New Name", object->name.c_str(), newName, IM_ARRAYSIZE(newName));
+        if (ImGui::Button("Rename") || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+            if (strlen(newName) > 0) {
+                object->name = newName;
+            }
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Drag source
+    if (ImGui::BeginDragDropSource()) {
+        ImGui::SetDragDropPayload(
+            "SYNGINE_GAMEOBJECT", &object, sizeof(Syngine::GameObject*));
+        ImGui::Text(
+            "%s",
+            object->name.c_str()); // Display the name of the dragged object
+        ImGui::EndDragDropSource();
+    }
+
+    // Drop Target
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload =
+                ImGui::AcceptDragDropPayload("SYNGINE_GAMEOBJECT")) {
+            Syngine::GameObject* droppedObject =
+                *(Syngine::GameObject**)payload->Data;
+            if (droppedObject && droppedObject != object) {
+                if (droppedObject->CanBeParentedTo(object)) {
+                    object->AddChild(droppedObject);
+                }
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+
+    // Children
     if (open) {
         for (Syngine::GameObject* child : object->GetChildren()) {
             _DrawHierarchyNode(child);
@@ -96,6 +200,24 @@ void UI::_RegisterInspectorWidgets() {
     InspectorRegistry::RegisterInspectorFunction(
         Syngine::DefaultComponents::SYN_COMPONENT_LIGHT_DIRECTIONAL,
         InspectorWidgets::DrawDirectionalLightWidget);
+    InspectorRegistry::RegisterInspectorFunction(
+        Syngine::DefaultComponents::SYN_COMPONENT_MESH,
+        InspectorWidgets::DrawMeshComponentWidget);
+    InspectorRegistry::RegisterInspectorFunction(
+        Syngine::DefaultComponents::SYN_COMPONENT_RIGIDBODY,
+        InspectorWidgets::DrawRigidbodyComponentWidget);
+    InspectorRegistry::RegisterInspectorFunction(
+        Syngine::DefaultComponents::SYN_COMPONENT_ZONE,
+        InspectorWidgets::DrawZoneComponentWidget);
+    InspectorRegistry::RegisterInspectorFunction(
+        Syngine::DefaultComponents::SYN_COMPONENT_CAMERA,
+        InspectorWidgets::DrawCameraComponentWidget);
+    InspectorRegistry::RegisterInspectorFunction(
+        Syngine::DefaultComponents::SYN_COMPONENT_BILLBOARD,
+        InspectorWidgets::DrawBillboardComponentWidget);
+    InspectorRegistry::RegisterInspectorFunction(
+        Syngine::DefaultComponents::SYN_COMPONENT_PLAYER,
+        InspectorWidgets::DrawPlayerComponentWidget);
 }
 
 void UI::Draw(int frameNum) {
@@ -146,6 +268,7 @@ void UI::BuildDefaultLayout(ImGuiID dockSpace) {
     ImGui::DockBuilderDockWindow("Console", bottom);
     ImGui::DockBuilderDockWindow("Assets", bottom);
     ImGui::DockBuilderDockWindow("Scene", dockSpace);
+    ImGui::DockBuilderDockWindow("Game", dockSpace);
 
     ImGui::DockBuilderFinish(dockSpace);
 }
@@ -252,6 +375,19 @@ void UI::DrawMainMenuBar() {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Add")) {
+            if (ImGui::MenuItem("Empty")) {
+                _AddGameObject(0, -1);
+            }
+            if (ImGui::MenuItem("Cube")) {
+                _AddGameObject(3, 0);
+            }
+            if (ImGui::MenuItem("Sphere")) {
+                _AddGameObject(3, 1);
+            }
+            ImGui::EndMenu();
+        }
+
         bool openAbout = false;
         if (ImGui::BeginMenu("Help")) {
             if (ImGui::MenuItem("About")) {
@@ -323,6 +459,27 @@ void UI::DrawScene() {
 void UI::DrawHierarchy() {
     ImGui::Begin("Hierarchy", nullptr, m_wFlags);
 
+    if (ImGui::Button("+")) {
+        ImGui::OpenPopup("AddGameObjectPopup");
+    }
+    if (ImGui::BeginPopup("AddGameObjectPopup")) {
+        if (ImGui::MenuItem("Empty")) {
+            _AddGameObject(0, -1);
+        }
+        if (ImGui::MenuItem("Cube")) {
+            _AddGameObject(3, 0);
+        }
+        if (ImGui::MenuItem("Sphere")) {
+            _AddGameObject(3, 1);
+        }
+        ImGui::EndPopup();
+    }
+
+    ImGui::SameLine();
+    static char searchBuffer[128] = "";
+    ImGui::InputTextWithHint(
+        "Search", "Search2", searchBuffer, sizeof(searchBuffer));
+
     // Figure out root objects
     const std::unordered_map<int, Syngine::GameObject>& allObjects =
         Syngine::GameObjectRegistry::GetAllGameObjects();
@@ -333,9 +490,44 @@ void UI::DrawHierarchy() {
         }
     }
 
+    ImGui::BeginChild("HierarchyTree", ImVec2(0, 0));
+
     for (const Syngine::GameObject* rootObject : rootObjects) {
         _DrawHierarchyNode(const_cast<Syngine::GameObject*>(rootObject));
     }
+
+    // If dropped in empty space become a root object (no parent)
+    float  treeBottom = ImGui::GetCursorScreenPos().y;
+    ImVec2 min        = ImVec2(ImGui::GetWindowPos().x, treeBottom);
+    ImVec2 max = ImVec2(ImGui::GetWindowPos().x + ImGui::GetWindowSize().x,
+                        ImGui::GetWindowPos().y + ImGui::GetWindowSize().y);
+    if (ImGui::BeginDragDropTargetCustom(ImRect(min, max),
+                                         ImGui::GetID("HierarchyTree"))) {
+        if (const ImGuiPayload* payload =
+                ImGui::AcceptDragDropPayload("SYNGINE_GAMEOBJECT")) {
+            auto object = *static_cast<Syngine::GameObject**>(payload->Data);
+
+            if (object) object->SetParent(nullptr);
+        }
+
+        ImGui::EndDragDropTarget();
+    }
+
+    if (ImGui::BeginPopupContextWindow(nullptr,
+                                       ImGuiPopupFlags_NoOpenOverItems)) {
+        if (ImGui::MenuItem("Add Empty GameObject")) {
+            _AddGameObject(0, -1);
+        }
+        if (ImGui::MenuItem("Add Cube")) {
+            _AddGameObject(3, 0);
+        }
+        if (ImGui::MenuItem("Add Sphere")) {
+            _AddGameObject(3, 1);
+        }
+        ImGui::EndPopup();
+    }
+
+    ImGui::EndChild();
 
     ImGui::End();
 }
@@ -344,7 +536,106 @@ void UI::DrawInspector() {
     ImGui::Begin("Inspector", nullptr, m_wFlags);
 
     if (m_selectedObject) {
+        const char* buf = m_selectedObject->name.c_str();
+        if (ImGui::InputText("Name", (char*)buf, 128)) {
+            m_selectedObject->name = std::string(buf);
+        }
+
+        bool active = m_selectedObject->IsActive();
+        if (ImGui::Checkbox("Enabled", &active)) {
+            m_selectedObject->SetActive(active);
+        }
+
+        if (ImGui::CollapsingHeader("Tags")) {
+            auto tags = m_selectedObject->GetTags();
+            for (size_t i = 0; i < tags.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::InputText("##tag", &tags[i][0], 128)) {
+                    m_selectedObject->SetTags(tags);
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Remove")) {
+                    m_selectedObject->RemoveTag(tags[i]);
+                    tags.erase(tags.begin() + i);
+                    --i;
+                }
+                ImGui::PopID();
+            }
+            if (ImGui::Button("Add Tag")) {
+                m_selectedObject->AddTag("NewTag");
+            }
+        }
+        ImGui::Separator();
+
         SynEditor::InspectorRegistry::Draw(*m_selectedObject);
+
+        ImGui::Separator();
+        if (ImGui::Button("Add Component")) {
+            ImGui::OpenPopup("AddComponentPopup");
+        }
+        if (ImGui::BeginPopup("AddComponentPopup")) {
+            if (ImGui::Selectable("Transform")) {
+                if (m_selectedObject) {
+                    m_selectedObject
+                        ->AddComponent<Syngine::TransformComponent>();
+                }
+            }
+            if (ImGui::Selectable("Mesh")) {
+                if (m_selectedObject) {
+                    m_selectedObject->AddComponent<Syngine::MeshComponent>();
+                }
+            }
+            if (ImGui::Selectable("Rigidbody")) {
+                if (m_selectedObject) {
+                    Syngine::RigidbodyParameters p{};
+                    m_selectedObject->AddComponent<Syngine::RigidbodyComponent>(
+                        p);
+                }
+            }
+            if (ImGui::Selectable("Billboard")) {
+                if (m_selectedObject) {
+                    m_selectedObject->AddComponent<Syngine::BillboardComponent>(
+                        "", "");
+                }
+            }
+            if (ImGui::Selectable("Camera")) {
+                if (m_selectedObject) {
+                    m_selectedObject->AddComponent<Syngine::CameraComponent>();
+                    m_selectedObject->GetComponent<Syngine::CameraComponent>()
+                        ->syncToTransform = true;
+                }
+            }
+            if (ImGui::Selectable("Player")) {
+                if (m_selectedObject) {
+                    m_selectedObject
+                        ->AddComponent<Syngine::TransformComponent>();
+                    m_selectedObject->AddComponent<Syngine::CameraComponent>();
+                    m_selectedObject->AddComponent<Syngine::PlayerComponent>(
+                        m_selectedObject
+                            ->GetComponent<Syngine::CameraComponent>());
+                }
+            }
+            if (ImGui::Selectable("Zone")) {
+                if (m_selectedObject) {
+                    m_selectedObject->AddComponent<Syngine::ZoneComponent>(
+                        Syngine::ZoneShape::BOX,
+                        m_selectedObject
+                            ->GetComponent<Syngine::TransformComponent>()
+                            ->GetWorldPosition(),
+                        Syngine::Math::Vector3(1.0f, 1.0f, 1.0f));
+                }
+            }
+            if (ImGui::Selectable("Directional Light")) {
+                if (m_selectedObject) {
+                    m_selectedObject
+                        ->AddComponent<Syngine::DirectionalLightComponent>(
+                            Syngine::Vector3(0.f, -1.0f, 0.f),
+                            Syngine::Vector3(1.0f),
+                            1.0f);
+                }
+            }
+            ImGui::EndPopup();
+        }
     } else {
         ImGui::Text("No object selected.");
     }

@@ -8,7 +8,10 @@
 
 #pragma once
 #include "Syngine/GameObjects/Components/MeshComponent.h"
+#include "Syngine/GameObjects/Components/RigidbodyComponent.h"
 #include "Syngine/GameObjects/Components/TransformComponent.h"
+#include "Syngine/GameObjects/GameObject.h"
+#include "Syngine/Scene/GameObjectRegistry.h"
 #include <Syngine/Syngine.h>
 
 using namespace Syngine;
@@ -31,6 +34,21 @@ class DefaultScene {
         auto t   = mug->AddComponent<TransformComponent>();
         t->SetPosition(Vector3(0.f, 0.f, 5.f));
         mug->AddComponent<MeshComponent>("meshes/meshes.spk", "mug.glb", false);
+
+        GameObject& cube = GameObjectRegistry::CreateGameObject("cube");
+        cube.AddComponent<TransformComponent>();
+        cube.AddComponent<MeshComponent>(
+            "meshes/meshes.spk", "cube.glb", false);
+        sm::Vector3 boxExtents(1.0f); // Half extents of the box
+        Syngine::RigidbodyParameters params = { .shape    = PhysicsShapes::BOX,
+                                                .mass     = 0.0f,
+                                                .friction = 0.7f,
+                                                .restitution     = 0.02f,
+                                                .shapeParameters = boxExtents,
+                                                .motionType =
+                                                    JPH::EMotionType::Dynamic,
+                                                .layer = Layers::MOVING };
+        cube.AddComponent<RigidbodyComponent>(params);
     };
 
     inline void SunDirLeft() {

@@ -26,8 +26,9 @@ class UI {
     bgfx::TextureHandle  m_logoTexture    = BGFX_INVALID_HANDLE;
     Syngine::GameObject* m_selectedObject = nullptr;
 
-    void _DrawHierarchyNode(Syngine::GameObject* object);
-    void _RegisterInspectorWidgets();
+    void                 _DrawHierarchyNode(Syngine::GameObject* object);
+    void                 _RegisterInspectorWidgets();
+    Syngine::GameObject& _AddGameObject(int type, int shape);
 
   public:
     void Draw(int frameNum);
