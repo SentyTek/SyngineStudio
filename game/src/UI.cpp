@@ -31,8 +31,9 @@
     static_cast<UI::FileCallbackType>(reinterpret_cast<std::uintptr_t>(x))
 namespace SynEditor {
 
-bool UI::m_layoutBuilt    = false;
-bool UI::ConfigFileExists = false;
+bool                        UI::m_layoutBuilt    = false;
+bool                        UI::ConfigFileExists = false;
+std::vector<UI::LogMessage> UI::m_logMessages;
 
 void SDLCALL FileDialogCallback(void*              userdata,
                                 const char* const* filelist,
@@ -228,6 +229,7 @@ void UI::Draw(int frameNum) {
 
     if (frameNum == 1) {
         _RegisterInspectorWidgets();
+        Syngine::Logger::RegisterCallback(_LogMsgCb);
     }
 
     DrawMainMenuBar();
@@ -651,8 +653,86 @@ void UI::DrawAssets() {
 
 void UI::DrawConsole() {
     ImGui::Begin("Console", nullptr, m_wFlags);
-    ImGui::Text("Console content goes here.");
+
+    if (ImGui::Button("Clear")) {
+        m_logMessages.clear();
+    }
+
+    static bool autoScroll = true;
+    static bool showInfo   = true;
+    static bool showWarn   = true;
+    static bool showError  = true;
+    ImGui::SameLine();
+    ImGui::Checkbox("Auto Scroll", &autoScroll);
+    ImGui::SameLine();
+    ImGui::Checkbox("Info", &showInfo);
+    ImGui::SameLine();
+    ImGui::Checkbox("Warn", &showWarn);
+    ImGui::SameLine();
+    ImGui::Checkbox("Error", &showError);
+    ImGui::Separator();
+
+    ImGui::BeginChild("ConsoleOutput",
+                      ImVec2(0, 0),
+                      ImGuiChildFlags_None,
+                      ImGuiWindowFlags_HorizontalScrollbar);
+
+    int i = 0;
+    for (const auto& logMessage : m_logMessages) {
+        bool shouldDisplay = false;
+        if (logMessage.level == "INFO" && showInfo) {
+            shouldDisplay = true;
+        } else if (logMessage.level == "WARN" && showWarn) {
+            shouldDisplay = true;
+        } else if (logMessage.level == "ERROR" && showError) {
+            shouldDisplay = true;
+        }
+
+        if (shouldDisplay) {
+            ImGui::PushID(i++);
+            ImVec4 color;
+            if (logMessage.level == "INFO") {
+                color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+            } else if (logMessage.level == "WARN") {
+                color = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+            } else if (logMessage.level == "ERROR") {
+                color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+            } else {
+                color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+            }
+
+            ImGui::PushStyleColor(ImGuiCol_Text, color);
+            ImGui::Text("[%s] [%s] %s",
+                        logMessage.timestamp.c_str(),
+                        logMessage.level.c_str(),
+                        logMessage.message.c_str());
+            ImGui::PopStyleColor();
+
+            if (ImGui::BeginPopupContextItem("LogContextMenu")) {
+                if (ImGui::MenuItem("Copy")) {
+                    ImGui::SetClipboardText(logMessage.message.c_str());
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::PopID();
+        }
+    }
+
+    if (autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+        ImGui::SetScrollHereY(1.0f);
+    }
+
+    ImGui::EndChild();
     ImGui::End();
+}
+
+void UI::_LogMsgCb(const std::string& message,
+                   Syngine::LogLevel  level,
+                   const std::string& timestamp) {
+    m_logMessages.push_back(
+
+        { message, SYN_LOGLEVEL_TO_STRING(level), timestamp });
 }
 
 } // namespace SynEditor

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "Syngine/Core/Logger.h"
 #include "bgfx/bgfx.h"
 #define SYNGINE_STUDIO_VERSION_STRING "0.0.1.dev"
 
@@ -29,6 +30,19 @@ class UI {
     void                 _DrawHierarchyNode(Syngine::GameObject* object);
     void                 _RegisterInspectorWidgets();
     Syngine::GameObject& _AddGameObject(int type, int shape);
+
+    struct LogMessage {
+        std::string message;
+        std::string level;
+        std::string timestamp;
+    };
+    static std::vector<LogMessage> m_logMessages;
+
+    static void _LogMsgCb(const std::string& message,
+                          Syngine::LogLevel  level,
+                          const std::string& timestamp);
+
+    friend class Syngine::Logger;
 
   public:
     void Draw(int frameNum);
