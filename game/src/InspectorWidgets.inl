@@ -132,11 +132,13 @@ class InspectorWidgets {
         }
         ImGui::SetItemTooltip("Reset %s", name);
 
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 10.0f);
-        if (ImGui::SmallButton("X")) {
-            removeFunc();
+        if (strcmp(name, "Transform") != 0) {
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 10.0f);
+            if (ImGui::SmallButton("X")) {
+                removeFunc();
+            }
+            ImGui::SetItemTooltip("Remove %s", name);
         }
-        ImGui::SetItemTooltip("Remove %s", name);
 
         // Enabled checkbox for the component
         ImGui::SameLine(10.0f);
