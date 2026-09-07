@@ -10,12 +10,6 @@
 #include <Syngine/Syngine.h>
 
 #include <SDL3/SDL.h>
-#include "Syngine/GameObjects/Components/CameraComponent.h"
-#include "Syngine/GameObjects/Components/MeshComponent.h"
-#include "Syngine/GameObjects/Components/RigidbodyComponent.h"
-#include "Syngine/GameObjects/Components/TransformComponent.h"
-#include "Syngine/Math/Vector3.hpp"
-#include "Syngine/Scene/GameObjectRegistry.h"
 #include "bgfx/bgfx.h"
 
 #include "imgui/backends/imgui_impl_bgfx.hpp"
@@ -23,6 +17,9 @@
 
 #include <lib/imgui/imgui.h>
 
+#include <memory>
+#include <algorithm>
+#include <cctype>
 #include <string>
 #include <unordered_map>
 
@@ -34,6 +31,16 @@ namespace SynEditor {
 bool                        UI::m_layoutBuilt    = false;
 bool                        UI::ConfigFileExists = false;
 std::vector<UI::LogMessage> UI::m_logMessages;
+
+std::unique_ptr<AssetDirectory> AssetWindow::m_rootDirectory =
+    std::make_unique<AssetDirectory>(AssetDirectory{
+        .name = "Assets", .children = {}, .assets = {}, .parent = nullptr });
+int             AssetWindow::ASSET_TILE_SIZE          = 128;
+int             AssetWindow::TILE_FIT_WIDTH           = 0;
+int             AssetWindow::numShownAssets           = 0;
+uint32_t        AssetWindow::shownAssetsTotalSizeDisk = 0;
+uint32_t        AssetWindow::shownAssetsTotalSizeVFS  = 0;
+AssetDirectory* AssetWindow::m_currentDirectory       = nullptr;
 
 void SDLCALL FileDialogCallback(void*              userdata,
                                 const char* const* filelist,
@@ -92,8 +99,46 @@ Syngine::GameObject& UI::_AddGameObject(int type, int shape) {
     return gameObject;
 }
 
-void UI::_DrawHierarchyNode(Syngine::GameObject* object) {
-    if (!object) return;
+bool UI::_ContainsInsensitive(const std::string& text, const char* searchText) {
+    if (!searchText || !searchText[0]) {
+        return true;
+    }
+    const std::string query(searchText);
+    if (query.size() > text.size()) {
+        return false;
+    }
+    return std::search(
+               text.begin(),
+               text.end(),
+               query.begin(),
+               query.end(),
+               [](char left, char right) {
+                   return std::tolower(static_cast<unsigned char>(left)) ==
+                          std::tolower(static_cast<unsigned char>(right));
+               }) != text.end();
+}
+
+bool UI::_HierarchyNodeMatches(Syngine::GameObject* object,
+                               const char*          searchText) {
+    if (!searchText || !searchText[0]) {
+        return true;
+    }
+    if (_ContainsInsensitive(object->name, searchText)) {
+        return true;
+    }
+    for (Syngine::GameObject* child : object->GetChildren()) {
+        if (_HierarchyNodeMatches(child, searchText)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool UI::_DrawHierarchyNode(Syngine::GameObject* object,
+                            const char*          searchText) {
+    if (!object || !_HierarchyNodeMatches(object, searchText)) {
+        return false;
+    }
 
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnDoubleClick |
                                    ImGuiTreeNodeFlags_SpanAvailWidth |
@@ -107,6 +152,9 @@ void UI::_DrawHierarchyNode(Syngine::GameObject* object) {
         nodeFlags |= ImGuiTreeNodeFlags_Leaf;
     }
 
+    if (searchText && searchText[0]) {
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+    }
     bool open = ImGui::TreeNodeEx(std::to_string(object->GetID()).c_str(),
                                   nodeFlags,
                                   "%s",
@@ -188,10 +236,11 @@ void UI::_DrawHierarchyNode(Syngine::GameObject* object) {
     // Children
     if (open) {
         for (Syngine::GameObject* child : object->GetChildren()) {
-            _DrawHierarchyNode(child);
+            _DrawHierarchyNode(child, searchText);
         }
         ImGui::TreePop();
     }
+    return true;
 }
 
 void UI::_RegisterInspectorWidgets() {
@@ -230,6 +279,9 @@ void UI::Draw(int frameNum) {
     if (frameNum == 1) {
         _RegisterInspectorWidgets();
         Syngine::Logger::RegisterCallback(_LogMsgCb);
+        AssetWindow::BuildFileTree(
+            scl::path::cwd().parentpath().parentpath().parentpath(),
+            "SyngineStudio");
     }
 
     DrawMainMenuBar();
@@ -480,7 +532,7 @@ void UI::DrawHierarchy() {
     ImGui::SameLine();
     static char searchBuffer[128] = "";
     ImGui::InputTextWithHint(
-        "Search", "Search2", searchBuffer, sizeof(searchBuffer));
+        "##HierarchySearch", "Search", searchBuffer, sizeof(searchBuffer));
 
     // Figure out root objects
     const std::unordered_map<int, Syngine::GameObject>& allObjects =
@@ -495,7 +547,8 @@ void UI::DrawHierarchy() {
     ImGui::BeginChild("HierarchyTree", ImVec2(0, 0));
 
     for (const Syngine::GameObject* rootObject : rootObjects) {
-        _DrawHierarchyNode(const_cast<Syngine::GameObject*>(rootObject));
+        _DrawHierarchyNode(const_cast<Syngine::GameObject*>(rootObject),
+                           searchBuffer);
     }
 
     // If dropped in empty space become a root object (no parent)
@@ -646,8 +699,100 @@ void UI::DrawInspector() {
 }
 
 void UI::DrawAssets() {
-    ImGui::Begin("Assets", nullptr, m_wFlags);
-    ImGui::Text("Assets content goes here.");
+    ImGui::Begin("Assets",
+                 nullptr,
+                 m_wFlags | ImGuiWindowFlags_NoScrollbar |
+                     ImGuiWindowFlags_NoScrollWithMouse);
+
+    const float           rowHeight        = ImGui::GetFrameHeightWithSpacing();
+    const AssetDirectory* currentDirectory = AssetWindow::GetCurrentDirectory();
+    static char           assetSearchBuffer[128] = "";
+
+    ImGui::BeginChild("AssetsBreadcrumbs", ImVec2(0, rowHeight));
+    if (ImGui::Button("<")) {
+        AssetWindow::NavigateBack();
+    }
+    ImGui::SetItemTooltip("Previous");
+
+    ImGui::SameLine();
+    if (ImGui::Button(">")) {
+        AssetWindow::NavigateForward();
+    }
+    ImGui::SetItemTooltip("Next");
+
+    ImGui::SameLine();
+    if (ImGui::Button("/\\")) {
+        if (currentDirectory && currentDirectory->parent) {
+            AssetWindow::SetCurrentDirectory(currentDirectory->parent);
+        }
+    }
+    ImGui::SetItemTooltip("Up");
+
+    std::vector<const AssetDirectory*> breadcrumbs;
+    for (const AssetDirectory* directory = currentDirectory; directory;
+         directory                       = directory->parent) {
+        if (directory != AssetWindow::m_rootDirectory.get()) {
+            breadcrumbs.push_back(directory);
+        }
+    }
+    for (size_t index = breadcrumbs.size(); index-- > 0;) {
+        if (index != breadcrumbs.size() - 1) {
+            ImGui::SameLine();
+            ImGui::Text("/");
+        }
+        ImGui::SameLine();
+        ImGui::PushID(breadcrumbs[index]);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+        if (ImGui::Button(breadcrumbs[index]->name.c_str())) {
+            AssetWindow::SetCurrentDirectory(breadcrumbs[index]);
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::PopID();
+    }
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 200);
+    ImGui::InputTextWithHint("##AssetsSearch",
+                             "Search",
+                             assetSearchBuffer,
+                             sizeof(assetSearchBuffer));
+
+    ImGui::EndChild();
+
+    ImGui::Separator();
+    ImGui::BeginChild(
+        "AssetsSidebar", ImVec2(160, -rowHeight), ImGuiChildFlags_Borders);
+    ImGui::Text("Sources");
+    ImGui::Separator();
+    if (ImGui::Button("Project", ImVec2(-1, 0))) {
+        const AssetDirectory* projectDirectory =
+            AssetWindow::m_rootDirectory->children.front()
+                ->children.front()
+                .get();
+        AssetWindow::SetCurrentDirectory(projectDirectory);
+    }
+    if (ImGui::Button("Engine", ImVec2(-1, 0))) {
+        const AssetDirectory* engineDirectory =
+            AssetWindow::m_rootDirectory->children.front()
+                ->children.back()
+                .get();
+        AssetWindow::SetCurrentDirectory(engineDirectory);
+    }
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    ImGui::BeginChild("AssetsContent", ImVec2(0, -rowHeight));
+    AssetWindow::DrawAssetTree(assetSearchBuffer);
+    ImGui::EndChild();
+
+    ImGui::BeginChild(
+        "AssetsFooter", ImVec2(0, rowHeight), ImGuiChildFlags_FrameStyle);
+
+    ImGui::Text("Assets: %i    Size: (%u KB / %u KB) (compressed/disk)",
+                AssetWindow::numShownAssets,
+                AssetWindow::shownAssetsTotalSizeDisk / 1024,
+                AssetWindow::shownAssetsTotalSizeVFS / 1024);
+    ImGui::EndChild();
     ImGui::End();
 }
 

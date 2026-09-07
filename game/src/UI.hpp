@@ -16,6 +16,7 @@
 
 #include <lib/imgui/imgui.h>
 #include "InspectorWidgets.inl"
+#include "AssetWindow.inl"
 
 namespace SynEditor {
 
@@ -27,8 +28,12 @@ class UI {
     bgfx::TextureHandle  m_logoTexture    = BGFX_INVALID_HANDLE;
     Syngine::GameObject* m_selectedObject = nullptr;
 
-    void                 _DrawHierarchyNode(Syngine::GameObject* object);
-    void                 _RegisterInspectorWidgets();
+    bool _DrawHierarchyNode(Syngine::GameObject* object,
+                            const char*          searchText);
+    bool _HierarchyNodeMatches(Syngine::GameObject* object,
+                               const char*          searchText);
+    bool _ContainsInsensitive(const std::string& text, const char* searchText);
+    void _RegisterInspectorWidgets();
     Syngine::GameObject& _AddGameObject(int type, int shape);
 
     struct LogMessage {
