@@ -50,6 +50,10 @@ class UI {
     friend class Syngine::Logger;
 
   public:
+    std::string g_projectName;
+    scl::path   g_projectDirectory;
+
+    void Setup(std::string projectName, scl::path projectDirectory);
     void Draw(int frameNum);
 
     void BuildDefaultLayout(ImGuiID dockSpace);

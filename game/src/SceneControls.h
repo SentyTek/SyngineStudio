@@ -1,4 +1,4 @@
-// ╒═══════════════════════════ Editor.h ═╕
+// ╒════════════════════ SceneControls.h ═╕
 // │ Syngine Studio                       │
 // │ Created 2026-08-21                   │
 // ├──────────────────────────────────────┤
@@ -9,7 +9,7 @@
 #pragma once
 #include <Syngine/Syngine.h>
 
-class Editor {
+class Scene {
   public:
     static Syngine::CameraComponent* editorCamera;
 

@@ -1,4 +1,4 @@
-// ╒═════════════════════════ Editor.cpp ═╕
+// ╒══════════════════ SceneControls.cpp ═╕
 // │ Syngine Studio                       │
 // │ Created 2026-08-21                   │
 // ├──────────────────────────────────────┤
@@ -6,14 +6,14 @@
 // │ Licensed under the MIT License       │
 // ╰──────────────────────────────────────╯
 
-#include "Editor.h"
+#include "SceneControls.h"
 #include <Syngine/Math/Math.hpp>
 
-Syngine::CameraComponent* Editor::editorCamera = nullptr;
-Editor::EditorState       Editor::editorState;
+Syngine::CameraComponent* Scene::editorCamera = nullptr;
+Scene::EditorState        Scene::editorState;
 
-void Editor::_MoveCameraInDirection(const Syngine::Math::Vector3& direction,
-                                    float                         speed) {
+void Scene::_MoveCameraInDirection(const Syngine::Math::Vector3& direction,
+                                   float                         speed) {
     Syngine::Math::Vector3 pos = editorCamera->GetPosition();
     Syngine::Math::Vector3 moveVec =
         Syngine::Math::Vector3(direction) * (speed * Syngine::Core::deltaTime);
@@ -22,7 +22,7 @@ void Editor::_MoveCameraInDirection(const Syngine::Math::Vector3& direction,
     editorCamera->SetPosition(pos);
 }
 
-void Editor::UpdateCamera(MovementBindings& movementBindings) {
+void Scene::UpdateCamera(MovementBindings& movementBindings) {
     float realSpeed = editorState.cameraSpeed;
     float deltaTime = Syngine::Core::deltaTime;
 
@@ -64,9 +64,9 @@ void Editor::UpdateCamera(MovementBindings& movementBindings) {
     }
 }
 
-void Editor::SetSimulate(bool simulate) { editorState.simulate = simulate; }
+void Scene::SetSimulate(bool simulate) { editorState.simulate = simulate; }
 
-void Editor::HandleMouseMovement(float x, float y) {
+void Scene::HandleMouseMovement(float x, float y) {
     if (!editorState.simulate && editorState.rmbHeld) {
         // Update camera angles based on mouse movement
         float deltaX = x * editorState.DEFAULT_SENSITIVITY;
@@ -91,7 +91,7 @@ void Editor::HandleMouseMovement(float x, float y) {
     }
 }
 
-void Editor::HandleMouseScroll(float x, float y) {
+void Scene::HandleMouseScroll(float x, float y) {
     if (!editorState.simulate) {
         if (y > 0) {
             editorState.cameraSpeed +=
@@ -110,7 +110,7 @@ void Editor::HandleMouseScroll(float x, float y) {
     }
 }
 
-void Editor::HandleRMouseButtonDown() {
+void Scene::HandleRMouseButtonDown() {
     if (!editorState.simulate) {
         editorState.rmbHeld  = true;
         editorState.mousePos = Syngine::Window::GetMousePosition();
@@ -119,7 +119,7 @@ void Editor::HandleRMouseButtonDown() {
     }
 };
 
-void Editor::HandleRMouseButtonUp() {
+void Scene::HandleRMouseButtonUp() {
     if (!editorState.simulate) {
         editorState.rmbHeld = false;
         if (Syngine::Core::viewportHovered) {
@@ -131,7 +131,7 @@ void Editor::HandleRMouseButtonUp() {
     }
 };
 
-void Editor::MakeCamera() {
+void Scene::MakeCamera() {
     auto* cam = new Syngine::CameraComponent(nullptr);
     cam->SetFarPlane(2000);
     editorCamera = cam;

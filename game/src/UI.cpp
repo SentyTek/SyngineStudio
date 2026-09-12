@@ -7,21 +7,20 @@
 // ╰──────────────────────────────────────╯
 
 #include "UI.hpp"
+#include "Background.h"
+
 #include <Syngine/Syngine.h>
 
 #include <SDL3/SDL.h>
-#include "bgfx/bgfx.h"
 
 #include "imgui/backends/imgui_impl_bgfx.hpp"
 #include "imgui/imgui_internal.h"
-
 #include <lib/imgui/imgui.h>
 
 #include <memory>
 #include <algorithm>
 #include <cctype>
 #include <string>
-#include <unordered_map>
 
 #define FCBT_TO_PTR(x) reinterpret_cast<void*>(static_cast<std::uintptr_t>(x))
 #define PTR_TO_FCBT(x)                                                         \
@@ -32,15 +31,16 @@ bool                        UI::m_layoutBuilt    = false;
 bool                        UI::ConfigFileExists = false;
 std::vector<UI::LogMessage> UI::m_logMessages;
 
-std::unique_ptr<AssetDirectory> AssetWindow::m_rootDirectory =
+std::unique_ptr<AssetDirectory> AssetWindow::g_rootDirectory =
     std::make_unique<AssetDirectory>(AssetDirectory{
         .name = "Assets", .children = {}, .assets = {}, .parent = nullptr });
-int             AssetWindow::ASSET_TILE_SIZE          = 128;
-int             AssetWindow::TILE_FIT_WIDTH           = 0;
-int             AssetWindow::numShownAssets           = 0;
-uint32_t        AssetWindow::shownAssetsTotalSizeDisk = 0;
-uint32_t        AssetWindow::shownAssetsTotalSizeVFS  = 0;
-AssetDirectory* AssetWindow::m_currentDirectory       = nullptr;
+int                        AssetWindow::ASSET_TILE_SIZE            = 128;
+int                        AssetWindow::TILE_FIT_WIDTH             = 0;
+int                        AssetWindow::g_numShownAssets           = 0;
+uint32_t                   AssetWindow::g_shownAssetsTotalSizeDisk = 0;
+uint32_t                   AssetWindow::g_shownAssetsTotalSizeVFS  = 0;
+AssetDirectory*            AssetWindow::m_currentDirectory         = nullptr;
+std::vector<FavoriteEntry> AssetWindow::g_favorites;
 
 void SDLCALL FileDialogCallback(void*              userdata,
                                 const char* const* filelist,
@@ -270,20 +270,21 @@ void UI::_RegisterInspectorWidgets() {
         InspectorWidgets::DrawPlayerComponentWidget);
 }
 
-void UI::Draw(int frameNum) {
+void UI::Setup(std::string projectName, scl::path projectDirectory) {
+    g_projectName      = projectName;
+    g_projectDirectory = projectDirectory;
+
+    _RegisterInspectorWidgets();
+    Syngine::Logger::RegisterCallback(_LogMsgCb);
+    AssetWindow::BuildFileTree(g_projectDirectory, g_projectName);
+
     if (!bgfx::isValid(m_logoTexture)) {
         m_logoTexture = Syngine::UI::Debug::ImGui_ImplBgfx::LoadTex(
             "imgs/imgs.spk", "builtin/Syngine_Logo_Banner_Rounded.png");
     }
+}
 
-    if (frameNum == 1) {
-        _RegisterInspectorWidgets();
-        Syngine::Logger::RegisterCallback(_LogMsgCb);
-        AssetWindow::BuildFileTree(
-            scl::path::cwd().parentpath().parentpath().parentpath(),
-            "SyngineStudio");
-    }
-
+void UI::Draw(int frameNum) {
     DrawMainMenuBar();
     DrawMainDockspace();
 
@@ -704,11 +705,12 @@ void UI::DrawAssets() {
                  m_wFlags | ImGuiWindowFlags_NoScrollbar |
                      ImGuiWindowFlags_NoScrollWithMouse);
 
-    const float           rowHeight        = ImGui::GetFrameHeightWithSpacing();
-    const AssetDirectory* currentDirectory = AssetWindow::GetCurrentDirectory();
-    static char           assetSearchBuffer[128] = "";
+    const float           rowHeight = ImGui::GetFrameHeightWithSpacing();
+    const AssetDirectory* currentDirectory =
+        AssetWindow::GetCurrentShownDirectory();
+    static char assetSearchBuffer[128] = "";
 
-    ImGui::BeginChild("AssetsBreadcrumbs", ImVec2(0, rowHeight));
+    ImGui::BeginChild("AssetHeader", ImVec2(0, rowHeight));
     if (ImGui::Button("<")) {
         AssetWindow::NavigateBack();
     }
@@ -723,7 +725,7 @@ void UI::DrawAssets() {
     ImGui::SameLine();
     if (ImGui::Button("/\\")) {
         if (currentDirectory && currentDirectory->parent) {
-            AssetWindow::SetCurrentDirectory(currentDirectory->parent);
+            AssetWindow::SetCurrentShownDirectory(currentDirectory->parent);
         }
     }
     ImGui::SetItemTooltip("Up");
@@ -731,7 +733,7 @@ void UI::DrawAssets() {
     std::vector<const AssetDirectory*> breadcrumbs;
     for (const AssetDirectory* directory = currentDirectory; directory;
          directory                       = directory->parent) {
-        if (directory != AssetWindow::m_rootDirectory.get()) {
+        if (directory != AssetWindow::g_rootDirectory.get()) {
             breadcrumbs.push_back(directory);
         }
     }
@@ -746,7 +748,7 @@ void UI::DrawAssets() {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
         if (ImGui::Button(breadcrumbs[index]->name.c_str())) {
-            AssetWindow::SetCurrentDirectory(breadcrumbs[index]);
+            AssetWindow::SetCurrentShownDirectory(breadcrumbs[index]);
         }
         ImGui::PopStyleColor(3);
         ImGui::PopID();
@@ -758,26 +760,53 @@ void UI::DrawAssets() {
                              sizeof(assetSearchBuffer));
 
     ImGui::EndChild();
-
     ImGui::Separator();
+
     ImGui::BeginChild(
         "AssetsSidebar", ImVec2(160, -rowHeight), ImGuiChildFlags_Borders);
     ImGui::Text("Sources");
     ImGui::Separator();
+
     if (ImGui::Button("Project", ImVec2(-1, 0))) {
         const AssetDirectory* projectDirectory =
-            AssetWindow::m_rootDirectory->children.front()
-                ->children.front()
-                .get();
-        AssetWindow::SetCurrentDirectory(projectDirectory);
+            AssetWindow::SearchForDirectory("assets");
+        AssetWindow::SetCurrentShownDirectory(projectDirectory);
     }
+
     if (ImGui::Button("Engine", ImVec2(-1, 0))) {
         const AssetDirectory* engineDirectory =
-            AssetWindow::m_rootDirectory->children.front()
-                ->children.back()
-                .get();
-        AssetWindow::SetCurrentDirectory(engineDirectory);
+            AssetWindow::SearchForDirectory("engine");
+        AssetWindow::SetCurrentShownDirectory(engineDirectory);
     }
+
+    ImGui::Separator();
+    ImGui::Text("Favorites");
+    ImGui::Separator();
+    std::string favoriteToRemove;
+    for (const FavoriteEntry& favorite : AssetWindow::g_favorites) {
+        ImGui::PushID(favorite.relativePath.c_str());
+        if (ImGui::Button(favorite.displayName.c_str(), ImVec2(-1, 0))) {
+            AssetWindow::NavigateToFavorite(favorite);
+        }
+        if (ImGui::BeginPopupContextItem("FavoriteContextMenu")) {
+            if (ImGui::MenuItem("Remove from Favorites")) {
+                favoriteToRemove = favorite.relativePath;
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::PopID();
+    }
+    if (!favoriteToRemove.empty()) {
+        AssetWindow::ToggleFavorite(favoriteToRemove, "", false);
+    }
+
+    ImGui::Separator();
+    if (ImGui::Button("Build Assets", ImVec2(-1, 0))) {
+        // configures and runs cmake in the project dir on a worker thread
+        ImGui::OpenPopup("CMake Output");
+        BackgroundActivities::RunCmake(g_projectDirectory.cstr());
+    }
+    BackgroundActivities::RenderCmake();
     ImGui::EndChild();
 
     ImGui::SameLine();
@@ -789,9 +818,16 @@ void UI::DrawAssets() {
         "AssetsFooter", ImVec2(0, rowHeight), ImGuiChildFlags_FrameStyle);
 
     ImGui::Text("Assets: %i    Size: (%u KB / %u KB) (compressed/disk)",
-                AssetWindow::numShownAssets,
-                AssetWindow::shownAssetsTotalSizeDisk / 1024,
-                AssetWindow::shownAssetsTotalSizeVFS / 1024);
+                AssetWindow::g_numShownAssets,
+                AssetWindow::g_shownAssetsTotalSizeDisk / 1024,
+                AssetWindow::g_shownAssetsTotalSizeVFS / 1024);
+
+    const std::string selectedAssetName =
+        AssetWindow::GetSelectedAssetDisplayName();
+    if (!selectedAssetName.empty()) {
+        ImGui::SameLine();
+        ImGui::Text("    Selected: %s", selectedAssetName.c_str());
+    }
     ImGui::EndChild();
     ImGui::End();
 }
@@ -815,6 +851,9 @@ void UI::DrawConsole() {
     ImGui::Checkbox("Warn", &showWarn);
     ImGui::SameLine();
     ImGui::Checkbox("Error", &showError);
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 200);
+    char consoleSearchBuf[128] = "";
+    ImGui::InputText("Search", consoleSearchBuf, sizeof(consoleSearchBuf));
     ImGui::Separator();
 
     ImGui::BeginChild("ConsoleOutput",
@@ -832,6 +871,10 @@ void UI::DrawConsole() {
         } else if (logMessage.level == "ERROR" && showError) {
             shouldDisplay = true;
         }
+        if (consoleSearchBuf[0] &&
+            !_ContainsInsensitive(logMessage.message, consoleSearchBuf)) {
+            shouldDisplay = false;
+        }
 
         if (shouldDisplay) {
             ImGui::PushID(i++);
@@ -847,10 +890,10 @@ void UI::DrawConsole() {
             }
 
             ImGui::PushStyleColor(ImGuiCol_Text, color);
-            ImGui::Text("[%s] [%s] %s",
-                        logMessage.timestamp.c_str(),
-                        logMessage.level.c_str(),
-                        logMessage.message.c_str());
+            const std::string logLine = "[" + logMessage.timestamp + "] [" +
+                                        logMessage.level + "] " +
+                                        logMessage.message;
+            ImGui::Selectable(logLine.c_str());
             ImGui::PopStyleColor();
 
             if (ImGui::BeginPopupContextItem("LogContextMenu")) {

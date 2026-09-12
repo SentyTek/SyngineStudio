@@ -9,6 +9,11 @@ include(${SYNGINE_SOURCE_DIR}/cmake/GameConfig.cmake)
 SyngineGame(${EXECUTABLE_NAME}
     SOURCES
         src/main.cpp
-        src/Editor.cpp
+        src/SceneControls.cpp
         src/UI.cpp
+        src/Background.cpp
+        src/Process.cpp
 )
+
+add_subdirectory(lib/tpl)
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE tiny-process-library)
