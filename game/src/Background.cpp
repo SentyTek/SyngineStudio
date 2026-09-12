@@ -108,9 +108,11 @@ void BackgroundActivities::RunCmake(const std::string& sourceDir) {
               "\" && cmake -S . -B build -G Ninja && cmake --build "
               "build --target BuildAssets";
 #elif BX_PLATFORM_OSX
-    command = "cmake -S . -B build -G Xcode && cmake --build build --target BuildAssets";
+    command = "cmake -S . -B build -G Ninja && cmake --build build --target "
+              "BuildAssets";
 #elif BX_PLATFORM_LINUX
-    command = "cmake -S . -B build -G Ninja && cmake --build build --target BuildAssets";
+    command = "cmake -S . -B build -G Ninja && cmake --build build --target "
+              "BuildAssets";
 #endif
     g_cmakeProcess.Start(command, sourceDir);
 }
