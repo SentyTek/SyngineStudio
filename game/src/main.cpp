@@ -11,7 +11,6 @@
 #include "DefaultScene.h"
 #include "Process.hpp"
 #include "SceneControls.h"
-#include "Syngine/Graphics/Windowing.h"
 #include "UI.hpp"
 #include "Background.h"
 
@@ -60,8 +59,23 @@ int AppMain(int argc, char* argv[]) {
         "Setting up build environment";
     SynEditor::BackgroundActivities::RenderStartupScreen();
     SynEditor::BackgroundActivities::SetupBuildEnvironment();
-    scl::path ProjectDirectory =
-        scl::path::cwd().parentpath().parentpath().parentpath();
+    scl::path ProjectDirectory;
+#if BX_PLATFORM_OSX
+    ProjectDirectory = scl::path::execdir()
+                           .parentpath()
+                           .parentpath()
+                           .parentpath()
+                           .parentpath()
+                           .parentpath()
+                           .parentpath();
+#else
+    ProjectDirectory =
+        scl::path::execdir().parentpath().parentpath().parentpath();
+#endif
+    Syngine::Logger::LogF(Syngine::LogLevel::INFO,
+                          true,
+                          "project dir: %s",
+                          scl::path::execdir().cstr());
 
     if (!skipCmake) {
         SynEditor::BackgroundActivities::g_loadingText = "Running CMake";

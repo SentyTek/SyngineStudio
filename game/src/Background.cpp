@@ -158,35 +158,6 @@ void BackgroundActivities::ShowStartupScreen() {
     g_startupRenderer = renderer;
     g_startupTexture  = nullptr;
 
-    // Load taskbar / window icon
-    {
-        int            iconW = 0, iconH = 0, iconComp = 0;
-        unsigned char* iconPixels = nullptr;
-
-        auto streamIcon = Syngine::Serializer::_ReadFromBundle(
-            "imgs/imgs.spk", "builtin/icon.png");
-        if (streamIcon.size() > 0) {
-            std::vector<stbi_uc> buffer(streamIcon.size());
-            streamIcon.read(buffer.data(), buffer.size());
-            iconPixels = stbi_load_from_memory(buffer.data(),
-                                               (int)buffer.size(),
-                                               &iconW,
-                                               &iconH,
-                                               &iconComp,
-                                               4);
-        }
-
-        if (iconPixels) {
-            SDL_Surface* iconSurface = SDL_CreateSurfaceFrom(
-                iconW, iconH, SDL_PIXELFORMAT_RGBA32, iconPixels, iconW * 4);
-            if (iconSurface) {
-                SDL_SetWindowIcon(startupWindow, iconSurface);
-                SDL_DestroySurface(iconSurface);
-            }
-            stbi_image_free(iconPixels);
-        }
-    }
-
     if (g_startupRenderer) {
         int            imgWidth = 0, imgHeight = 0, channels = 0;
         unsigned char* pixels = nullptr;

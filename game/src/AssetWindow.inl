@@ -7,6 +7,7 @@
 // ╰──────────────────────────────────────╯
 
 #include <Syngine/Syngine.h>
+#include "Syngine/Core/Logger.h"
 #include "bgfx/bgfx.h"
 #include "imgui/backends/imgui_impl_bgfx.hpp"
 #include "src/Syngine/Graphics/Resources/TextureHelpers.h"
@@ -158,6 +159,8 @@ class AssetWindow {
         // 3. Search the virtual file system for assets. Ideally, there will be
         // 100% matches between the build VFS and the earlier discovered assets.
         // 4. Build the hierarchical tree structure based on the found assets.
+        Syngine::Logger::LogF(
+            Syngine::LogLevel::INFO, true, "proj dir: %s", projectPath.cstr());
 
         // 1. Search the engine's directory for assets.
         scl::path engineAssetsPath(projectPath / "engine/default");
@@ -181,9 +184,9 @@ class AssetWindow {
 #if BX_PLATFORM_OSX
         // Macos special app bundles think they're so special
         scl::path   appName(projectName + ".app");
-        scl::string pattern      = projectPath / "build/Debug/bin/" / appName /
-                                   "Contents/Resources/rom/**/*.spk";
-        auto        buildBundles = scl::path::glob(pattern);
+        scl::string pattern = projectPath / "build/Debug/bin/" / appName /
+                              "Contents/Resources/rom/**/*.spk";
+        auto buildBundles = scl::path::glob(pattern);
 #else
         scl::string pattern      = projectPath / "build/Debug/bin/rom/**/*.spk";
         auto        buildBundles = scl::path::glob(pattern);
@@ -286,11 +289,11 @@ class AssetWindow {
             }
 
             {
-                AssetType type = vfsFile.endswith(".glb")   ? AssetType::MODEL
-                                 : vfsFile.endswith(".bin") ? AssetType::SHADER
-                                 : vfsFile.endswith(".png")
-                                     ? AssetType::TEXTURE
-                                     : AssetType::UNKNOWN;
+                AssetType   type = vfsFile.endswith(".glb") ? AssetType::MODEL
+                                   : vfsFile.endswith(".bin") ? AssetType::SHADER
+                                   : vfsFile.endswith(".png")
+                                       ? AssetType::TEXTURE
+                                       : AssetType::UNKNOWN;
                 std::string stem =
                     vfsFileStr.substr(vfsFileStr.find_last_of("/\\") + 1);
                 scl::path         diskFile = projectFile != projectAssets.end()
