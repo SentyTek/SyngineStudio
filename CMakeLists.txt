@@ -38,6 +38,7 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 add_definitions(-DSYN_IS_EDITOR)
+set(SYN_IS_EDITOR ON)
 
 # Add engine first
 add_subdirectory(engine)

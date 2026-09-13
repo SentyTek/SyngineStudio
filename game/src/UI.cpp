@@ -13,6 +13,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "bgfx/bgfx.h"
 #include "imgui/backends/imgui_impl_bgfx.hpp"
 #include "imgui/imgui_internal.h"
 #include <lib/imgui/imgui.h>
@@ -293,6 +294,10 @@ void UI::Draw(int frameNum) {
     DrawInspector();
     DrawConsole();
     DrawAssets();
+
+    if (AssetWindow::m_selectedAsset) {
+        m_selectedAsset = AssetWindow::m_selectedAsset;
+    }
 }
 
 void UI::BuildDefaultLayout(ImGuiID dockSpace) {
@@ -583,6 +588,13 @@ void UI::DrawHierarchy() {
         ImGui::EndPopup();
     }
 
+    // Deselect the currently selected object if the user clicks on empty space
+    // in the hierarchy window
+    if (ImGui::IsWindowHovered() &&
+        ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        m_selectedObject = nullptr;
+    }
+
     ImGui::EndChild();
 
     ImGui::End();
@@ -692,8 +704,34 @@ void UI::DrawInspector() {
             }
             ImGui::EndPopup();
         }
+    } else if (m_selectedAsset) {
+        ImGui::Text("Asset selected: %s", m_selectedAsset->displayName.c_str());
+        ImGui::Separator();
+
+        if (bgfx::isValid(m_selectedAsset->thumbnail)) {
+            ImGui::Image(
+                Syngine::UI::Debug::SImGui::ToImGui(m_selectedAsset->thumbnail),
+                ImVec2(128, 128));
+        } else {
+            ImGui::Text("No Thumbnail");
+        }
+
+        ImGui::Text("Path on disk: %s",
+                    m_selectedAsset->path.absoluteDiskPath.c_str());
+        ImGui::Text("Bundle path: %s", m_selectedAsset->path.bundlePath.cstr());
+        ImGui::Text("Path in bundle: %s",
+                    m_selectedAsset->path.pathInBundle.cstr());
+        ImGui::Text("Asset type: %s",
+                    ASSET_TYPE_TO_STRING(m_selectedAsset->type));
+        ImGui::Text("Asset source: %s",
+                    ASSET_SOURCE_TO_STRING(m_selectedAsset->source));
+        ImGui::Text("Asset size on disk: %u KB",
+                    m_selectedAsset->sizeDisk / 1024);
+        ImGui::Text("Asset size in VFS: %u KB",
+                    m_selectedAsset->sizeVFS / 1024);
+
     } else {
-        ImGui::Text("No object selected.");
+        ImGui::Text("No object or asset selected.");
     }
 
     ImGui::End();
@@ -812,6 +850,13 @@ void UI::DrawAssets() {
     ImGui::SameLine();
     ImGui::BeginChild("AssetsContent", ImVec2(0, -rowHeight));
     AssetWindow::DrawAssetTree(assetSearchBuffer);
+
+    if (ImGui::IsWindowHovered() &&
+        ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        AssetWindow::m_selectedAsset = nullptr;
+        m_selectedAsset              = nullptr;
+    }
+
     ImGui::EndChild();
 
     ImGui::BeginChild(

@@ -9,7 +9,9 @@
 #include <Syngine/Syngine.h>
 
 #include "DefaultScene.h"
+#include "Process.hpp"
 #include "SceneControls.h"
+#include "Syngine/Graphics/Windowing.h"
 #include "UI.hpp"
 #include "Background.h"
 
@@ -18,11 +20,20 @@
 using namespace Syngine;
 
 int AppMain(int argc, char* argv[]) {
+    bool skipCmake = false;
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--skip-cmake") {
+            skipCmake = true;
+            break;
+        }
+    }
+
     std::string           gameName = "Syngine Studio";
-    Syngine::EngineConfig config   = { .gameName     = gameName,
-                                       .windowWidth  = 1600,
-                                       .windowHeight = 900,
-                                       .usePhysics   = true };
+    Syngine::EngineConfig config   = { .gameName       = gameName,
+                                       .windowWidth    = 1600,
+                                       .windowHeight   = 900,
+                                       .showWindowAuto = false,
+                                       .usePhysics     = true };
 
     Syngine::RendererConfig rConfig = { .useShadows      = true,
                                         .shadowDist      = 500,
@@ -35,17 +46,37 @@ int AppMain(int argc, char* argv[]) {
     Syngine::Core engine(config);
     engine.Initialize(rConfig);
 
+    SynEditor::BackgroundActivities::ShowStartupScreen();
+
+    SynEditor::BackgroundActivities::g_loadingText = "Loading default scene";
+    SynEditor::BackgroundActivities::RenderStartupScreen();
     Scene::MakeCamera();
     DefaultScene defaultScene;
     defaultScene.Load();
+
     SynEditor::UI editorUi;
 
+    SynEditor::BackgroundActivities::g_loadingText =
+        "Setting up build environment";
+    SynEditor::BackgroundActivities::RenderStartupScreen();
     SynEditor::BackgroundActivities::SetupBuildEnvironment();
     scl::path ProjectDirectory =
         scl::path::cwd().parentpath().parentpath().parentpath();
-    editorUi.Setup("SyngineStudio", ProjectDirectory);
-    // space illegal
 
+    if (!skipCmake) {
+        SynEditor::BackgroundActivities::g_loadingText = "Running CMake";
+        SynEditor::BackgroundActivities::RenderStartupScreen();
+        SynEditor::BackgroundActivities::RunCmake(ProjectDirectory.cstr());
+        SynEditor::BackgroundActivities::g_cmakeProcess.Wait();
+    }
+
+    SynEditor::BackgroundActivities::g_loadingText = "Importing assets";
+    SynEditor::BackgroundActivities::RenderStartupScreen();
+    editorUi.Setup("SyngineStudio", ProjectDirectory);
+    // space illegal in project name
+
+    SynEditor::BackgroundActivities::g_loadingText = "Configuring editor UI";
+    SynEditor::BackgroundActivities::RenderStartupScreen();
     scl::path imguiini("imgui.ini");
     editorUi.ConfigFileExists = imguiini.exists();
 
@@ -119,6 +150,8 @@ int AppMain(int argc, char* argv[]) {
     engine.AddFrameCallback(
         [&editorUi](int frameNum) { editorUi.Draw(frameNum); });
 
+    SynEditor::BackgroundActivities::HideStartupScreen();
+    Syngine::Window::SetWindowVisible(true);
     Logger::Info("Starting event loop", true);
     while (engine.IsRunning()) {
         Profiler::Reset();

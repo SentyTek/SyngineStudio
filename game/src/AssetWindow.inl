@@ -7,7 +7,9 @@
 // ╰──────────────────────────────────────╯
 
 #include <Syngine/Syngine.h>
+#include "bgfx/bgfx.h"
 #include "imgui/backends/imgui_impl_bgfx.hpp"
+#include "src/Syngine/Graphics/Resources/TextureHelpers.h"
 
 #include <imgui/imgui_internal.h>
 #include <imgui/imgui.h>
@@ -24,14 +26,27 @@
 
 namespace SynEditor {
 
+#define ASSET_SOURCE_TO_STRING(x) ((x) == AssetSource::GAME ? "GAME" : "ENGINE")
+#define ASSET_TYPE_TO_STRING(x)                                                \
+    ((x) == AssetType::TEXTURE     ? "TEXTURE"                                 \
+     : (x) == AssetType::MODEL     ? "MODEL"                                   \
+     : (x) == AssetType::SOUND     ? "SOUND"                                   \
+     : (x) == AssetType::SCRIPT    ? "SCRIPT"                                  \
+     : (x) == AssetType::SHADER    ? "SHADER"                                  \
+     : (x) == AssetType::ANIMATION ? "ANIMATION"                               \
+     : (x) == AssetType::PREFAB    ? "PREFAB"                                  \
+     : (x) == AssetType::SCENE     ? "SCENE"                                   \
+                                   : "UNKNOWN")
+
 enum class AssetSource { GAME, ENGINE };
 
 // Since assets are on both disk and the engine VFS, we just keep track of both
 // paths here
 struct AssetPath {
-    std::string diskPath;
+    std::string diskPath; // Relative to the project
     scl::string bundlePath;
     std::string absoluteDiskPath; // Real on-disk path, used for delete/reveal
+    scl::string pathInBundle;
 };
 
 enum class AssetType {
@@ -102,15 +117,15 @@ class AssetWindow {
     inline static std::string m_confirmDeletePath;
     inline static std::string m_confirmDeleteLabel;
 
-    // diskPath of the currently selected (non-directory) asset, empty if none
-    inline static std::string m_selectedAssetPath;
-
   public:
     static std::unique_ptr<AssetDirectory> g_rootDirectory;
     static int                             g_numShownAssets;
     static uint32_t                        g_shownAssetsTotalSizeDisk;
     static uint32_t                        g_shownAssetsTotalSizeVFS;
     static std::vector<FavoriteEntry>      g_favorites;
+
+    // the currently selected (non-directory) asset, empty if none
+    inline static AssetInfo* m_selectedAsset = nullptr;
 
     inline static bool ContainsInsensitive(const std::string& text,
                                            const char*        searchText) {
@@ -203,6 +218,7 @@ class AssetWindow {
             const size_t      fileNameOffset = vfsFileStr.find_last_of("/\\");
             const std::string fileName       = vfsFileStr.substr(
                 fileNameOffset == std::string::npos ? 0 : fileNameOffset + 1);
+
             // Only exists in vfs and not an actual asset, or is a meta/system
             // file
             if (fileName == "meta.xml" || fileName == ".DS_Store") {
@@ -281,21 +297,30 @@ class AssetWindow {
                                                  ? *projectFile
                                                  : *engineFile;
                 const std::string absoluteDiskPath = diskFile.cstr();
+
                 // In diskFile elliminate anything before the projectName
                 diskFile = diskFile.substr(diskFile.ffi(projectName));
 
-                allAssets.push_back(
-                    { .id          = 0,
-                      .type        = type,
-                      .source      = projectFile != projectAssets.end()
-                                         ? AssetSource::GAME
-                                         : AssetSource::ENGINE,
-                      .path        = { .diskPath         = diskFile.cstr(),
-                                       .bundlePath       = bundle,
-                                       .absoluteDiskPath = absoluteDiskPath },
-                      .sizeDisk    = compressedSize,
-                      .sizeVFS     = originalSize,
-                      .displayName = stem });
+                bgfx::TextureHandle thumbnail = BGFX_INVALID_HANDLE;
+                if (type == AssetType::TEXTURE) {
+                    thumbnail = TryGenerateThumbnail(bundle, vfsFileStr);
+                }
+
+                allAssets.push_back({
+                    .id          = 0,
+                    .type        = type,
+                    .source      = projectFile != projectAssets.end()
+                                       ? AssetSource::GAME
+                                       : AssetSource::ENGINE,
+                    .path        = { .diskPath         = diskFile.cstr(),
+                                     .bundlePath       = bundle,
+                                     .absoluteDiskPath = absoluteDiskPath,
+                                     .pathInBundle     = vfsFileStr },
+                    .sizeDisk    = compressedSize,
+                    .sizeVFS     = originalSize,
+                    .displayName = stem,
+                    .thumbnail   = thumbnail,
+                });
             }
         }
 
@@ -441,7 +466,7 @@ class AssetWindow {
                                   errorCode.message().c_str());
         } else {
             Syngine::Logger::Info("Deleted " + m_pendingDeleteLabel, true);
-            m_selectedAssetPath.clear();
+            m_selectedAsset = nullptr;
             RebuildTree();
         }
 
@@ -551,9 +576,9 @@ class AssetWindow {
         const bool   tileHovered = ImGui::IsMouseHoveringRect(tileMin, tileMax);
         const bool   tilePressed =
             tileHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
-        const bool isSelected = !asset.isDirectory &&
-                                !m_selectedAssetPath.empty() &&
-                                asset.path.diskPath == m_selectedAssetPath;
+        const bool isSelected =
+            !asset.isDirectory && m_selectedAsset &&
+            asset.path.diskPath == m_selectedAsset->path.diskPath;
 
         ImVec4 tileColor = isSelected ? style.Colors[ImGuiCol_HeaderActive]
                                       : style.Colors[ImGuiCol_ChildBg];
@@ -577,7 +602,7 @@ class AssetWindow {
 
         if (!asset.isDirectory && ImGui::IsWindowHovered() &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-            m_selectedAssetPath = asset.path.diskPath;
+            m_selectedAsset = const_cast<AssetInfo*>(&asset);
         }
 
         const float labelHeight = ImGui::GetTextLineHeight();
@@ -867,19 +892,27 @@ class AssetWindow {
                 ? g_rootDirectory.get()
                 : FindDirectoryByRelativePath(parentRelativePath);
         SetCurrentShownDirectory(directory);
-        m_selectedAssetPath = favorite.relativePath;
+        m_selectedAsset =
+            const_cast<AssetInfo*>(FindAssetByDiskPath(favorite.relativePath));
     }
 
-    inline static const std::string& GetSelectedAssetPath() {
-        return m_selectedAssetPath;
-    }
+    inline static AssetInfo* GetSelectedAsset() { return m_selectedAsset; }
 
     inline static std::string GetSelectedAssetDisplayName() {
-        if (m_selectedAssetPath.empty()) {
+        if (!m_selectedAsset) {
             return "";
         }
-        const AssetInfo* asset = FindAssetByDiskPath(m_selectedAssetPath);
-        return asset ? asset->displayName : "";
+        return m_selectedAsset->displayName;
+    }
+
+    inline static bgfx::TextureHandle
+    TryGenerateThumbnail(scl::path bundle, scl::string pathInBundle) {
+        bgfx::TextureHandle thumbnail =
+            Syngine::LoadTextureFromBundle(bundle.cstr(), pathInBundle.cstr());
+        if (!bgfx::isValid(thumbnail)) {
+            return BGFX_INVALID_HANDLE;
+        }
+        return thumbnail;
     }
 };
 

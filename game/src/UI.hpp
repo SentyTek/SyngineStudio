@@ -27,6 +27,7 @@ class UI {
 
     bgfx::TextureHandle  m_logoTexture    = BGFX_INVALID_HANDLE;
     Syngine::GameObject* m_selectedObject = nullptr;
+    AssetInfo*           m_selectedAsset  = nullptr;
 
     bool _DrawHierarchyNode(Syngine::GameObject* object,
                             const char*          searchText);
