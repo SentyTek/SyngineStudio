@@ -55,6 +55,7 @@ class UI {
     scl::path   g_projectDirectory;
 
     void Setup(std::string projectName, scl::path projectDirectory);
+    void Shutdown();
     void Draw(int frameNum);
 
     void BuildDefaultLayout(ImGuiID dockSpace);

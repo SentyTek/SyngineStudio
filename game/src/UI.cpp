@@ -281,8 +281,16 @@ void UI::Setup(std::string projectName, scl::path projectDirectory) {
 
     if (!bgfx::isValid(m_logoTexture)) {
         m_logoTexture = Syngine::UI::Debug::ImGui_ImplBgfx::LoadTex(
-            "imgs/imgs.spk", "builtin/Syngine_Logo_Banner_Rounded.png");
+            "imgs/builtin.spk", "Syngine_Logo_Banner_Rounded.png");
     }
+}
+
+void UI::Shutdown() {
+    if (bgfx::isValid(m_logoTexture)) {
+        bgfx::destroy(m_logoTexture);
+        m_logoTexture = BGFX_INVALID_HANDLE;
+    }
+    AssetWindow::Shutdown();
 }
 
 void UI::Draw(int frameNum) {

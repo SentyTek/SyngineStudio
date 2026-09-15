@@ -21,7 +21,7 @@ using namespace Syngine;
 int AppMain(int argc, char* argv[]) {
     bool skipCmake = false;
     for (int i = 1; i < argc; ++i) {
-        if (std::string(argv[i]) == "--skip-cmake") {
+        if (std::string(argv[i]) == "--skip-build-at-start") {
             skipCmake = true;
             break;
         }
@@ -78,7 +78,8 @@ int AppMain(int argc, char* argv[]) {
                           scl::path::execdir().cstr());
 
     if (!skipCmake) {
-        SynEditor::BackgroundActivities::g_loadingText = "Running CMake";
+        SynEditor::BackgroundActivities::g_loadingText =
+            "Building asset library";
         SynEditor::BackgroundActivities::RenderStartupScreen();
         SynEditor::BackgroundActivities::RunCmake(ProjectDirectory.cstr());
         SynEditor::BackgroundActivities::g_cmakeProcess.Wait();
@@ -178,7 +179,10 @@ int AppMain(int argc, char* argv[]) {
         }
     }
 
-    // Cleanup
+    // Cleanup - must happen before the engine (and bgfx) shut down, since
+    // these hold bgfx handles that aren't tied to syngine's own resource
+    // tracking.
+    editorUi.Shutdown();
     Syngine::GameObjectRegistry::Clear();
     ShaderManager::UnloadAllShaders();
     return 0;

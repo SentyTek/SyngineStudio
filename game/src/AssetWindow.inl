@@ -379,14 +379,39 @@ class AssetWindow {
         m_historyIndex     = 0;
     }
 
+    // Thumbnails are plain bgfx handles owned by the tree, so they must be
+    // destroyed explicitly before the tree that holds them is discarded.
+    inline static void DestroyThumbnails(AssetDirectory* directory) {
+        if (!directory) {
+            return;
+        }
+        for (auto& asset : directory->assets) {
+            if (bgfx::isValid(asset.thumbnail)) {
+                bgfx::destroy(asset.thumbnail);
+                asset.thumbnail = BGFX_INVALID_HANDLE;
+            }
+        }
+        for (auto& child : directory->children) {
+            DestroyThumbnails(child.get());
+        }
+    }
+
     // Re-scans disk/VFS from scratch, e.g. after an asset was deleted
     inline static void RebuildTree() {
+        DestroyThumbnails(g_rootDirectory.get());
         g_rootDirectory = std::make_unique<AssetDirectory>(
             AssetDirectory{ .name     = "Assets",
                             .children = {},
                             .assets   = {},
                             .parent   = nullptr });
         BuildFileTree(m_projectRoot, m_projectName);
+    }
+
+    // Must be called before bgfx shuts down, since g_rootDirectory is static
+    // and otherwise outlives bgfx teardown.
+    inline static void Shutdown() {
+        DestroyThumbnails(g_rootDirectory.get());
+        g_rootDirectory.reset();
     }
 
     inline static std::string

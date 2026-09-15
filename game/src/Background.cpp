@@ -110,19 +110,13 @@ void BackgroundActivities::RenderCmake() {
 
 void BackgroundActivities::RunCmake(const std::string& sourceDir) {
     g_showCmakePopup = true;
-    std::string command;
-#if BX_PLATFORM_WINDOWS
-    command = std::string("cmd.exe /c call \"") +
-              g_buildEnvironment.vcvars.cstr() +
-              "\" && cmake -S . -B build -G Ninja && cmake --build "
-              "build --target BuildAssets";
-#elif BX_PLATFORM_OSX
-    command = "cmake -S . -B build -G Ninja && cmake --build build --target "
-              "BuildAssets";
-#elif BX_PLATFORM_LINUX
-    command = "cmake -S . -B build -G Ninja && cmake --build build --target "
-              "BuildAssets";
-#endif
+    const auto quote = [](const std::string& value) {
+        return std::string("\"") + value + "\"";
+    };
+    std::string command = quote(SYNGINE_SYNTOOLS_PATH) + " build-assets " +
+                          quote(sourceDir) + " " +
+                          quote(SYNGINE_ASSET_OUTPUT_PATH) + " " +
+                          quote(SYNGINE_SHADER_OUTPUT_PATH);
     g_cmakeProcess.Start(command, sourceDir);
 }
 
@@ -163,8 +157,8 @@ void BackgroundActivities::ShowStartupScreen() {
         unsigned char* pixels = nullptr;
 
         // Loads from bundle using stream read
-        auto stream = Syngine::Serializer::_ReadFromBundle(
-            "imgs/imgs.spk", "builtin/StartupLogo.png");
+        auto stream = Syngine::Serializer::_ReadFromBundle("imgs/builtin.spk",
+                                                           "StartupLogo.png");
         if (stream.size() > 0) {
             std::vector<stbi_uc> buffer(stream.size());
             stream.read(buffer.data(), buffer.size());
