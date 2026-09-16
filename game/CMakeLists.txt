@@ -13,6 +13,8 @@ SyngineGame(${EXECUTABLE_NAME}
         src/UI.cpp
         src/Background.cpp
         src/Process.cpp
+        src/IconManager.cpp
+        src/AssetWindow.cpp
 )
 
 add_subdirectory(lib/tpl)

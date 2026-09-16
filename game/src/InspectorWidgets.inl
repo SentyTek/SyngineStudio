@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "IconManager.hpp"
 #include "Syngine/GameObjects/Component.h"
 #include "Syngine/GameObjects/Components/ZoneComponent.h"
 #include "Syngine/Graphics/Rendering/Renderer.h"
@@ -116,24 +117,39 @@ class InspectorWidgets {
                             ImGui::GetColorU32(hovered ? ImGuiCol_HeaderHovered
                                                        : ImGuiCol_Header));
 
-        draw->AddText(ImVec2(start.x + 25, start.y + 2),
+        std::string lower = name;
+        for (auto& c : lower) c = std::tolower(c);
+        // replace spaces with underscores
+        for (auto& c : lower) {
+            if (c == ' ') c = '_';
+        }
+
+        ImTextureRef icon = ImTextureRef(
+            IconManager::GetIconImGui(std::string("component/") + lower));
+        draw->AddImage(icon,
+                       ImVec2(start.x + 27, start.y + 2),
+                       ImVec2(start.x + 45, start.y + 18));
+
+        ImGui::SameLine();
+
+        draw->AddText(ImVec2(start.x + 50, start.y + 2),
                       ImGui::GetColorU32(ImGuiCol_Text),
                       name);
 
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 40.0f);
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 70.0f);
         if (ImGui::SmallButton("?")) {
             SDL_OpenURL(doclink);
         }
         ImGui::SetItemTooltip("Open Documentation");
 
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 25.0f);
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 50.0f);
         if (ImGui::SmallButton("R")) {
             resetFunc();
         }
         ImGui::SetItemTooltip("Reset %s", name);
 
         if (strcmp(name, "Transform") != 0) {
-            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 10.0f);
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 30.0f);
             if (ImGui::SmallButton("X")) {
                 removeFunc();
             }

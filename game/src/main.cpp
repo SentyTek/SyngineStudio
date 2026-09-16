@@ -8,11 +8,7 @@
 
 #include <Syngine/Syngine.h>
 
-#include "DefaultScene.h"
-#include "Process.hpp"
-#include "SceneControls.h"
-#include "UI.hpp"
-#include "Background.h"
+#include "Editor.h"
 
 #include <string>
 
@@ -79,7 +75,7 @@ int AppMain(int argc, char* argv[]) {
 
     if (!skipCmake) {
         SynEditor::BackgroundActivities::g_loadingText =
-            "Building asset library";
+            "Updating asset library";
         SynEditor::BackgroundActivities::RenderStartupScreen();
         SynEditor::BackgroundActivities::RunCmake(ProjectDirectory.cstr());
         SynEditor::BackgroundActivities::g_cmakeProcess.Wait();

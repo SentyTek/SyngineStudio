@@ -8,6 +8,7 @@
 
 #include "UI.hpp"
 #include "Background.h"
+#include "IconManager.hpp"
 
 #include <Syngine/Syngine.h>
 
@@ -16,7 +17,7 @@
 #include "bgfx/bgfx.h"
 #include "imgui/backends/imgui_impl_bgfx.hpp"
 #include "imgui/imgui_internal.h"
-#include <lib/imgui/imgui.h>
+#include "imgui/imgui.h"
 
 #include <memory>
 #include <algorithm>
@@ -156,10 +157,22 @@ bool UI::_DrawHierarchyNode(Syngine::GameObject* object,
     if (searchText && searchText[0]) {
         ImGui::SetNextItemOpen(true, ImGuiCond_Always);
     }
-    bool open = ImGui::TreeNodeEx(std::to_string(object->GetID()).c_str(),
-                                  nodeFlags,
-                                  "%s",
-                                  object->name.c_str());
+    const std::string nodeId = "##GameObject" + std::to_string(object->GetID());
+    bool              open   = ImGui::TreeNodeEx(nodeId.c_str(), nodeFlags);
+    const ImVec2      nodeMin  = ImGui::GetItemRectMin();
+    const ImVec2      nodeSize = ImGui::GetItemRectSize();
+    const float       iconSize = 16.0f;
+    const float       contentX = nodeMin.x + ImGui::GetTreeNodeToLabelSpacing();
+    const float       iconY    = nodeMin.y + (nodeSize.y - iconSize) * 0.5f;
+    ImGui::GetWindowDrawList()->AddImage(
+        IconManager::GetIconImGui("assets/gameobject"),
+        ImVec2(contentX, iconY),
+        ImVec2(contentX + iconSize, iconY + iconSize));
+    ImGui::GetWindowDrawList()->AddText(
+        ImVec2(contentX + iconSize + ImGui::GetStyle().ItemSpacing.x,
+               nodeMin.y + (nodeSize.y - ImGui::GetTextLineHeight()) * 0.5f),
+        ImGui::GetColorU32(ImGuiCol_Text),
+        object->name.c_str());
 
     if (ImGui::IsItemClicked()) {
         m_selectedObject = object;
@@ -277,6 +290,7 @@ void UI::Setup(std::string projectName, scl::path projectDirectory) {
 
     _RegisterInspectorWidgets();
     Syngine::Logger::RegisterCallback(_LogMsgCb);
+    IconManager::LoadIcons();
     AssetWindow::BuildFileTree(g_projectDirectory, g_projectName);
 
     if (!bgfx::isValid(m_logoTexture)) {
@@ -291,6 +305,7 @@ void UI::Shutdown() {
         m_logoTexture = BGFX_INVALID_HANDLE;
     }
     AssetWindow::Shutdown();
+    IconManager::UnloadIcons();
 }
 
 void UI::Draw(int frameNum) {
@@ -303,9 +318,7 @@ void UI::Draw(int frameNum) {
     DrawConsole();
     DrawAssets();
 
-    if (AssetWindow::m_selectedAsset) {
-        m_selectedAsset = AssetWindow::m_selectedAsset;
-    }
+    m_selectedAsset = AssetWindow::m_selectedAsset;
 }
 
 void UI::BuildDefaultLayout(ImGuiID dockSpace) {
@@ -649,39 +662,69 @@ void UI::DrawInspector() {
         if (ImGui::Button("Add Component")) {
             ImGui::OpenPopup("AddComponentPopup");
         }
+
+        auto SelectableWithIcon = [](const char* label) {
+            ImVec2 pos  = ImGui::GetCursorScreenPos();
+            ImVec2 size = ImVec2(250.0f, 24.0f);
+
+            std::string lower = label;
+            for (auto& c : lower) c = std::tolower(c);
+            // replace spaces with underscores
+            for (auto& c : lower) {
+                if (c == ' ') c = '_';
+            }
+
+            ImTextureRef icon = ImTextureRef(
+                IconManager::GetIconImGui(std::string("component/") + lower));
+
+            bool clicked =
+                ImGui::Selectable(("##" + lower).c_str(), false, 0, size);
+
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            draw->AddImage(icon,
+                           ImVec2(pos.x + 4, pos.y + 4),
+                           ImVec2(pos.x + 20, pos.y + 20));
+
+            draw->AddText(ImVec2(pos.x + 24, pos.y + 4),
+                          ImGui::GetColorU32(ImGuiCol_Text),
+                          label);
+
+            return clicked;
+        };
+
         if (ImGui::BeginPopup("AddComponentPopup")) {
-            if (ImGui::Selectable("Transform")) {
+            if (SelectableWithIcon("Transform")) {
                 if (m_selectedObject) {
                     m_selectedObject
                         ->AddComponent<Syngine::TransformComponent>();
                 }
             }
-            if (ImGui::Selectable("Mesh")) {
+            if (SelectableWithIcon("Mesh")) {
                 if (m_selectedObject) {
                     m_selectedObject->AddComponent<Syngine::MeshComponent>();
                 }
             }
-            if (ImGui::Selectable("Rigidbody")) {
+            if (SelectableWithIcon("Rigidbody")) {
                 if (m_selectedObject) {
                     Syngine::RigidbodyParameters p{};
                     m_selectedObject->AddComponent<Syngine::RigidbodyComponent>(
                         p);
                 }
             }
-            if (ImGui::Selectable("Billboard")) {
+            if (SelectableWithIcon("Billboard")) {
                 if (m_selectedObject) {
                     m_selectedObject->AddComponent<Syngine::BillboardComponent>(
                         "", "");
                 }
             }
-            if (ImGui::Selectable("Camera")) {
+            if (SelectableWithIcon("Camera")) {
                 if (m_selectedObject) {
                     m_selectedObject->AddComponent<Syngine::CameraComponent>();
                     m_selectedObject->GetComponent<Syngine::CameraComponent>()
                         ->syncToTransform = true;
                 }
             }
-            if (ImGui::Selectable("Player")) {
+            if (SelectableWithIcon("Player Controller")) {
                 if (m_selectedObject) {
                     m_selectedObject
                         ->AddComponent<Syngine::TransformComponent>();
@@ -691,7 +734,7 @@ void UI::DrawInspector() {
                             ->GetComponent<Syngine::CameraComponent>());
                 }
             }
-            if (ImGui::Selectable("Zone")) {
+            if (SelectableWithIcon("Zone")) {
                 if (m_selectedObject) {
                     m_selectedObject->AddComponent<Syngine::ZoneComponent>(
                         Syngine::ZoneShape::BOX,
@@ -701,7 +744,7 @@ void UI::DrawInspector() {
                         Syngine::Math::Vector3(1.0f, 1.0f, 1.0f));
                 }
             }
-            if (ImGui::Selectable("Directional Light")) {
+            if (SelectableWithIcon("Directional Light")) {
                 if (m_selectedObject) {
                     m_selectedObject
                         ->AddComponent<Syngine::DirectionalLightComponent>(
@@ -739,7 +782,7 @@ void UI::DrawInspector() {
                     m_selectedAsset->sizeVFS / 1024);
 
     } else {
-        ImGui::Text("No object or asset selected.");
+        ImGui::Text("No object or asset selected :(");
     }
 
     ImGui::End();

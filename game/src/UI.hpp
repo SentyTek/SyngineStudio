@@ -16,7 +16,7 @@
 
 #include <lib/imgui/imgui.h>
 #include "InspectorWidgets.inl"
-#include "AssetWindow.inl"
+#include "AssetWindow.hpp"
 
 namespace SynEditor {
 

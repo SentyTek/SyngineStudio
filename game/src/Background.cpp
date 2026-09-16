@@ -10,7 +10,7 @@
 
 #include "Background.h"
 #include "Process.hpp"
-#include "AssetWindow.inl"
+#include "AssetWindow.hpp"
 #include "SDL3/SDL_render.h"
 
 #include <imgui/imgui.h>
@@ -84,10 +84,25 @@ void BackgroundActivities::Update() {}
 
 void BackgroundActivities::RenderCmake() {
     if (g_showCmakePopup) {
-        if (ImGui::BeginPopupModal(
-                "CMake Output", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::BeginChild("Output", ImVec2(500, 300));
-            ImGui::TextUnformatted(g_cmakeProcess.Output().c_str());
+        if (ImGui::BeginPopupModal("Asset Build Output",
+                                   nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize)) {
+            // Process the CMake output and filter out any bgfx and file paths
+            std::string cmakeOutput = g_cmakeProcess.Output();
+            // Filter out any lines containing "bgfx" or file paths
+            std::istringstream outputStream(cmakeOutput);
+            std::string        filteredOutput;
+            std::string        line;
+            while (std::getline(outputStream, line)) {
+                if (line.find("bgfx") == std::string::npos &&
+                    line.find(":\\") == std::string::npos &&
+                    line.find("/Users") == std::string::npos) {
+                    filteredOutput += line + "\n";
+                }
+            }
+
+            ImGui::BeginChild("Output", ImVec2(700, 300));
+            ImGui::TextUnformatted(filteredOutput.c_str());
             ImGui::SetScrollHereY(1.0f);
             ImGui::EndChild();
 
@@ -95,7 +110,6 @@ void BackgroundActivities::RenderCmake() {
                 g_cmakeProcess.Kill();
                 g_showCmakePopup = false;
                 ImGui::CloseCurrentPopup();
-                AssetWindow::RebuildTree();
             }
             ImGui::SameLine();
             if (ImGui::Button("Close")) {
