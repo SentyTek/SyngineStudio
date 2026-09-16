@@ -777,9 +777,9 @@ void UI::DrawInspector() {
         ImGui::Text("Asset source: %s",
                     ASSET_SOURCE_TO_STRING(m_selectedAsset->source));
         ImGui::Text("Asset size on disk: %u KB",
-                    m_selectedAsset->sizeDisk / 1024);
+                    m_selectedAsset->sizeDisk / 1000);
         ImGui::Text("Asset size in VFS: %u KB",
-                    m_selectedAsset->sizeVFS / 1024);
+                    m_selectedAsset->sizeVFS / 1000);
 
     } else {
         ImGui::Text("No object or asset selected :(");
@@ -915,8 +915,8 @@ void UI::DrawAssets() {
 
     ImGui::Text("Assets: %i    Size: (%u KB / %u KB) (compressed/disk)",
                 AssetWindow::g_numShownAssets,
-                AssetWindow::g_shownAssetsTotalSizeDisk / 1024,
-                AssetWindow::g_shownAssetsTotalSizeVFS / 1024);
+                AssetWindow::g_shownAssetsTotalSizeVFS / 1000,
+                AssetWindow::g_shownAssetsTotalSizeDisk / 1000);
 
     const std::string selectedAssetName =
         AssetWindow::GetSelectedAssetDisplayName();

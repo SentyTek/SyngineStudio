@@ -75,9 +75,9 @@ void AssetWindow::BuildFileTree(scl::path   projectPath,
 #if BX_PLATFORM_OSX
     // Macos special app bundles think they're so special
     scl::path   appName(projectName + ".app");
-    scl::string pattern      = projectPath / "build/Debug/bin/" / appName /
-                               "Contents/Resources/rom/**/*.spk";
-    auto        buildBundles = scl::path::glob(pattern);
+    scl::string pattern = projectPath / "build/Debug/bin/" / appName /
+                          "Contents/Resources/rom/**/*.spk";
+    auto buildBundles = scl::path::glob(pattern);
 #else
     scl::string pattern      = projectPath / "build/Debug/bin/rom/**/*.spk";
     auto        buildBundles = scl::path::glob(pattern);
@@ -209,8 +209,8 @@ void AssetWindow::BuildFileTree(scl::path   projectPath,
                                  .bundlePath       = bundle,
                                  .absoluteDiskPath = absoluteDiskPath,
                                  .pathInBundle     = vfsFileStr },
-                .sizeDisk    = compressedSize,
-                .sizeVFS     = originalSize,
+                .sizeDisk    = originalSize,
+                .sizeVFS     = compressedSize,
                 .displayName = stem,
                 .thumbnail   = thumbnail,
             });
