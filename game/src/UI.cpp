@@ -892,7 +892,7 @@ void UI::DrawAssets() {
     ImGui::Separator();
     if (ImGui::Button("Build Assets", ImVec2(-1, 0))) {
         // configures and runs cmake in the project dir on a worker thread
-        ImGui::OpenPopup("CMake Output");
+        ImGui::OpenPopup("Asset Build Output");
         BackgroundActivities::RunCmake(g_projectDirectory.cstr());
     }
     BackgroundActivities::RenderCmake();

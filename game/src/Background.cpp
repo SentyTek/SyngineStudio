@@ -24,61 +24,14 @@
 
 namespace SynEditor {
 
-Process          BackgroundActivities::g_cmakeProcess;
-bool             BackgroundActivities::g_showCmakePopup = false;
-std::string      BackgroundActivities::g_loadingText    = "Starting";
-BuildEnvironment BackgroundActivities::g_buildEnvironment;
+Process     BackgroundActivities::g_cmakeProcess;
+bool        BackgroundActivities::g_showCmakePopup = false;
+std::string BackgroundActivities::g_loadingText    = "Starting";
 
 SDL_Window*   BackgroundActivities::g_startupWindow   = nullptr;
 SDL_Renderer* BackgroundActivities::g_startupRenderer = nullptr;
 SDL_Texture*  BackgroundActivities::g_startupTexture  = nullptr;
 
-void BackgroundActivities::SetupBuildEnvironment() {
-#ifdef _WIN32
-    // First find the Visual Studio installation and vcvars path
-    // Fortunately, vswhere exists
-    char programFilesX86[MAX_PATH] = {};
-    GetEnvironmentVariableA("ProgramFiles(x86)", programFilesX86, MAX_PATH);
-    std::string installerDir =
-        std::string(programFilesX86) + "\\Microsoft Visual Studio\\Installer";
-
-    Process vswhereProcess;
-    vswhereProcess.Start(
-        installerDir + "\\vswhere.exe -latest -products * -requires "
-                       "Microsoft.VisualStudio.Component.VC.Tools.x86.x64 "
-                       "-property installationPath",
-        installerDir);
-    vswhereProcess.Wait();
-    if (vswhereProcess.GetExitCode() != 0) {
-        Syngine::Logger::ToConsole(
-            "Failed to find Visual Studio installation via vswhere.");
-    }
-    std::string vswhereOutput = vswhereProcess.Output();
-    if (vswhereOutput.empty()) {
-        Syngine::Logger::ToConsole(
-            "Visual Studio installation path not found in vswhere output.");
-    }
-
-    // strip any trailing newline characters from the vswhere output
-    while (!vswhereOutput.empty() &&
-           (vswhereOutput.back() == '\n' || vswhereOutput.back() == '\r')) {
-        vswhereOutput.pop_back();
-    }
-    std::string vcvarsPath =
-        vswhereOutput + "\\VC\\Auxiliary\\Build\\vcvars64.bat";
-
-    BuildEnvironment buildEnvironment{ .visualStudio = scl::path(vswhereOutput),
-                                       .vcvars       = scl::path(vcvarsPath),
-                                       .arch         = "x64" };
-    g_buildEnvironment = buildEnvironment;
-#else
-    // For non-Windows platforms, set up a default build environment
-    BuildEnvironment buildEnvironment{ .visualStudio = scl::path(""),
-                                       .vcvars       = scl::path(""),
-                                       .arch         = "x64" };
-    g_buildEnvironment = buildEnvironment;
-#endif
-}
 
 void BackgroundActivities::Update() {}
 
@@ -88,7 +41,7 @@ void BackgroundActivities::RenderCmake() {
                                    nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             // Process the CMake output and filter out any bgfx and file paths
-            std::string cmakeOutput = g_cmakeProcess.Output();
+            std::string cmakeOutput = "Working...\n" + g_cmakeProcess.Output();
             // Filter out any lines containing "bgfx" or file paths
             std::istringstream outputStream(cmakeOutput);
             std::string        filteredOutput;
@@ -112,7 +65,7 @@ void BackgroundActivities::RenderCmake() {
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Close")) {
+            if (ImGui::Button("Close (Reimports assets)")) {
                 g_showCmakePopup = false;
                 ImGui::CloseCurrentPopup();
                 AssetWindow::RebuildTree();
@@ -216,6 +169,7 @@ void BackgroundActivities::RenderStartupScreen() {
     if (!g_startupWindow || !g_startupRenderer) {
         return;
     }
+    g_showCmakePopup = false;
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {

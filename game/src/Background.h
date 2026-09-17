@@ -17,12 +17,6 @@
 
 namespace SynEditor {
 
-struct BuildEnvironment {
-    scl::path   visualStudio;
-    scl::path   vcvars;
-    std::string arch;
-};
-
 class BackgroundActivities {
     static SDL_Window*   g_startupWindow;
     static SDL_Renderer* g_startupRenderer;
@@ -32,10 +26,6 @@ class BackgroundActivities {
     static Process     g_cmakeProcess;
     static bool        g_showCmakePopup;
     static std::string g_loadingText;
-
-    static BuildEnvironment g_buildEnvironment;
-
-    static void SetupBuildEnvironment();
 
     static void Update();
     static void RenderCmake();

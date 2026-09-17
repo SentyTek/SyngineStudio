@@ -51,10 +51,6 @@ int AppMain(int argc, char* argv[]) {
 
     SynEditor::UI editorUi;
 
-    SynEditor::BackgroundActivities::g_loadingText =
-        "Setting up build environment";
-    SynEditor::BackgroundActivities::RenderStartupScreen();
-    SynEditor::BackgroundActivities::SetupBuildEnvironment();
     scl::path ProjectDirectory;
 #if BX_PLATFORM_OSX
     ProjectDirectory = scl::path::execdir()
