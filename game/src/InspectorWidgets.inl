@@ -136,20 +136,20 @@ class InspectorWidgets {
                       ImGui::GetColorU32(ImGuiCol_Text),
                       name);
 
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 70.0f);
+        ImGui::SetCursorScreenPos(ImVec2(start.x + width - 70.0f, start.y));
         if (ImGui::SmallButton("?")) {
             SDL_OpenURL(doclink);
         }
         ImGui::SetItemTooltip("Open Documentation");
 
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 50.0f);
+        ImGui::SetCursorScreenPos(ImVec2(start.x + width - 50.0f, start.y));
         if (ImGui::SmallButton("R")) {
             resetFunc();
         }
         ImGui::SetItemTooltip("Reset %s", name);
 
         if (strcmp(name, "Transform") != 0) {
-            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 30.0f);
+            ImGui::SetCursorScreenPos(ImVec2(start.x + width - 30.0f, start.y));
             if (ImGui::SmallButton("X")) {
                 removeFunc();
             }
