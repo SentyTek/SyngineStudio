@@ -45,8 +45,8 @@
 
 #define BILLBOARD_MODE_TO_STRING(mode)                                         \
     ((mode) == Syngine::BillboardMode::FIXED            ? "Fixed"              \
-     : (mode) == Syngine::BillboardMode::CAMERA_ALIGNED ? "Camera"             \
-     : (mode) == Syngine::BillboardMode::AXIS_Y_ALIGNED ? "Y-Axis"             \
+     : (mode) == Syngine::BillboardMode::CAMERA_ALIGNED ? "Camera Aligned"     \
+     : (mode) == Syngine::BillboardMode::AXIS_Y_ALIGNED ? "Y-Axis Aligned"     \
                                                         : "Unknown")
 
 namespace SynEditor {
@@ -192,7 +192,7 @@ class InspectorWidgets {
         bool open    = InspectorCategory(
             "Transform",
             "https://github.com/SentyTek/Syngine/blob/main/"
-            "docs/api/transformcomponent_doc.md",
+               "docs/api/transformcomponent_doc.md",
             resetFunc,
             [&object]() {
                 object->RemoveComponent(Syngine::SYN_COMPONENT_TRANSFORM);
@@ -281,7 +281,7 @@ class InspectorWidgets {
         bool open    = InspectorCategory(
             "Directional Light",
             "https://github.com/SentyTek/Syngine/blob/main/"
-            "docs/api/directionallightcomponent_doc.md",
+               "docs/api/directionallightcomponent_doc.md",
             resetFunc,
             [&object]() {
                 object->RemoveComponent(
@@ -335,7 +335,7 @@ class InspectorWidgets {
         bool open    = InspectorCategory(
             "Mesh",
             "https://github.com/SentyTek/Syngine/blob/main/"
-            "docs/api/meshcomponent_doc.md",
+               "docs/api/meshcomponent_doc.md",
             resetFunc,
             [&object]() {
                 object->RemoveComponent(Syngine::SYN_COMPONENT_MESH);
@@ -389,7 +389,7 @@ class InspectorWidgets {
         bool open    = InspectorCategory(
             "Rigidbody",
             "https://github.com/SentyTek/Syngine/blob/main/"
-            "docs/api/rigidbodycomponent_doc.md",
+               "docs/api/rigidbodycomponent_doc.md",
             resetFunc,
             [&object]() {
                 object->RemoveComponent(Syngine::SYN_COMPONENT_RIGIDBODY);
@@ -803,7 +803,7 @@ class InspectorWidgets {
         bool open    = InspectorCategory(
             "Zone",
             "https://github.com/SentyTek/Syngine/blob/main/"
-            "docs/api/zonecomponent_doc.md",
+               "docs/api/zonecomponent_doc.md",
             resetFunc,
             [&object]() {
                 object->RemoveComponent(Syngine::SYN_COMPONENT_ZONE);
@@ -899,7 +899,7 @@ class InspectorWidgets {
         bool open    = InspectorCategory(
             "Camera",
             "https://github.com/SentyTek/Syngine/blob/main/"
-            "docs/api/cameracomponent_doc.md",
+               "docs/api/cameracomponent_doc.md",
             resetFunc,
             [&object]() {
                 object->RemoveComponent(Syngine::SYN_COMPONENT_CAMERA);
@@ -976,7 +976,7 @@ class InspectorWidgets {
         bool open    = InspectorCategory(
             "Billboard",
             "https://github.com/SentyTek/Syngine/blob/main/"
-            "docs/api/billboardcomponent_doc.md",
+               "docs/api/billboardcomponent_doc.md",
             resetFunc,
             [&object]() {
                 object->RemoveComponent(Syngine::SYN_COMPONENT_BILLBOARD);
@@ -1006,12 +1006,14 @@ class InspectorWidgets {
                                   mode == Syngine::BillboardMode::FIXED)) {
                 billboardComp->SetMode(Syngine::BillboardMode::FIXED);
             }
-            if (ImGui::Selectable(
-                    "Camera", mode == Syngine::BillboardMode::CAMERA_ALIGNED)) {
+            if (ImGui::Selectable("Camera Aligned",
+                                  mode ==
+                                      Syngine::BillboardMode::CAMERA_ALIGNED)) {
                 billboardComp->SetMode(Syngine::BillboardMode::CAMERA_ALIGNED);
             }
-            if (ImGui::Selectable(
-                    "Y-Axis", mode == Syngine::BillboardMode::AXIS_Y_ALIGNED)) {
+            if (ImGui::Selectable("Y-Axis Aligned",
+                                  mode ==
+                                      Syngine::BillboardMode::AXIS_Y_ALIGNED)) {
                 billboardComp->SetMode(Syngine::BillboardMode::AXIS_Y_ALIGNED);
             }
             ImGui::EndCombo();
@@ -1041,7 +1043,7 @@ class InspectorWidgets {
         bool open    = InspectorCategory(
             "Player Controller",
             "https://github.com/SentyTek/Syngine/blob/main/"
-            "docs/api/playercomponent_doc.md",
+               "docs/api/playercomponent_doc.md",
             resetFunc,
             [&object]() {
                 object->RemoveComponent(Syngine::SYN_COMPONENT_PLAYER);

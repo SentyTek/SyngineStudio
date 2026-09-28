@@ -9,7 +9,6 @@
 #include <Syngine/Syngine.h>
 
 #include "Editor.h"
-#include "Syngine/Core/Core.h"
 
 #include <string>
 

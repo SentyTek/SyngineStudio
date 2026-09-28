@@ -7,6 +7,8 @@
 // ╰──────────────────────────────────────╯
 
 #include "AssetWindow.hpp"
+#include "SDL3/SDL_iostream.h"
+#include "Syngine/Utils/Serializer.h"
 #include "bgfx/bgfx.h"
 
 #include "IconManager.hpp"
@@ -50,8 +52,6 @@ void AssetWindow::BuildFileTree(scl::path   projectPath,
     // 3. Search the virtual file system for assets. Ideally, there will be
     // 100% matches between the build VFS and the earlier discovered assets.
     // 4. Build the hierarchical tree structure based on the found assets.
-    Syngine::Logger::LogF(
-        Syngine::LogLevel::INFO, true, "proj dir: %s", projectPath.cstr());
 
     // 1. Search the engine's directory for assets.
     scl::path engineAssetsPath(projectPath / "engine/default");
@@ -71,6 +71,7 @@ void AssetWindow::BuildFileTree(scl::path   projectPath,
 
     auto projectAssets = scl::path::glob(projectAssetsPath / "**/*");
 
+#if 0
     // 3. Check the build VFS
 #if BX_PLATFORM_OSX
     // Macos special app bundles think they're so special
@@ -100,6 +101,16 @@ void AssetWindow::BuildFileTree(scl::path   projectPath,
         }
         packager.close();
     }
+#else
+    auto allFilesInBundles =
+        std::vector<std::tuple<scl::string, scl::path, uint32_t, uint32_t>>{};
+    for (const auto& engineFile : engineAssets) {
+        allFilesInBundles.push_back({ engineFile.cstr(), "", 0, 0 });
+    }
+    for (const auto& projectFile : projectAssets) {
+        allFilesInBundles.push_back({ projectFile.cstr(), "", 0, 0 });
+    }
+#endif
 
     // 3.5. Ensure every non-generated VFS file exists on disk. If it does,
     // create an AssetInfo entry for it, being sure to strip the full path
@@ -764,12 +775,31 @@ void AssetWindow::NavigateToFavorite(const FavoriteEntry& favorite) {
 
 bgfx::TextureHandle
 AssetWindow::TryGenerateThumbnail(scl::path bundle, scl::string pathInBundle) {
+#if 0
     bgfx::TextureHandle thumbnail =
         Syngine::LoadTextureFromBundle(bundle.cstr(), pathInBundle.cstr());
     if (!bgfx::isValid(thumbnail)) {
         return BGFX_INVALID_HANDLE;
     }
     return thumbnail;
+#else
+    SDL_IOStream* rw = SDL_IOFromFile(pathInBundle.cstr(), "rb");
+    if (!rw) {
+        Syngine::Logger::LogF(Syngine::LogLevel::INFO,
+                              false,
+                              "Failed to open file: %s",
+                              pathInBundle.cstr());
+        return BGFX_INVALID_HANDLE;
+    }
+
+    Sint64               size = SDL_GetIOSize(rw);
+    std::vector<uint8_t> data(size);
+    SDL_ReadIO(rw, data.data(), size);
+    SDL_CloseIO(rw);
+
+    return Syngine::LoadTextureFromMemory(
+        data.data(), static_cast<size_t>(size), pathInBundle.cstr());
+#endif
 }
 
 } // namespace SynEditor

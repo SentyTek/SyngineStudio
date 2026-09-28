@@ -15,9 +15,6 @@
 
 #include <SDL3/SDL.h>
 
-#include "Syngine/Core/Core.h"
-#include "Syngine/Physics/PhysicsManager.h"
-#include "Syngine/Scene/GameObjectRegistry.h"
 #include "bgfx/bgfx.h"
 #include "imgui/backends/imgui_impl_bgfx.hpp"
 #include "imgui/imgui_internal.h"
@@ -301,6 +298,44 @@ void UI::Setup(std::string projectName, scl::path projectDirectory) {
         m_logoTexture = Syngine::UI::Debug::ImGui_ImplBgfx::LoadTex(
             "imgs/builtin.spk", "Syngine_Logo_Banner_Rounded.png");
     }
+
+    // Add the 4 tool keybinds on 1-4
+    Syngine::InputAction::RegisterAction(
+        "editor.tool.eyedropper",
+        "Eyedropper Tool",
+        "Tools",
+        Syngine::KeyBinding(Syngine::Scancode::NUM_1),
+        { .onPressed = [this]() {
+            if (!ImGui::GetIO().WantTextInput)
+                m_sceneSettings.tool = Tool::Select;
+        } });
+    Syngine::InputAction::RegisterAction(
+        "editor.tool.translate",
+        "Translate Tool",
+        "Tools",
+        Syngine::KeyBinding(Syngine::Scancode::NUM_2),
+        { .onPressed = [this]() {
+            if (!ImGui::GetIO().WantTextInput)
+                m_sceneSettings.tool = Tool::Move;
+        } });
+    Syngine::InputAction::RegisterAction(
+        "editor.tool.rotate",
+        "Rotate Tool",
+        "Tools",
+        Syngine::KeyBinding(Syngine::Scancode::NUM_3),
+        { .onPressed = [this]() {
+            if (!ImGui::GetIO().WantTextInput)
+                m_sceneSettings.tool = Tool::Rotate;
+        } });
+    Syngine::InputAction::RegisterAction(
+        "editor.tool.scale",
+        "Scale Tool",
+        "Tools",
+        Syngine::KeyBinding(Syngine::Scancode::NUM_4),
+        { .onPressed = [this]() {
+            if (!ImGui::GetIO().WantTextInput)
+                m_sceneSettings.tool = Tool::Scale;
+        } });
 }
 
 void UI::Shutdown() {
@@ -352,6 +387,7 @@ void UI::BuildDefaultLayout(ImGuiID dockSpace) {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImVec2         workSize = viewport->WorkSize;
     ImVec2         workPos  = viewport->WorkPos;
+    workSize.y -= ImGui::GetFrameHeightWithSpacing();
 
     ImGui::DockBuilderSetNodeSize(dockSpace, workSize);
     ImGui::DockBuilderSetNodePos(dockSpace, workPos);
@@ -379,7 +415,8 @@ void UI::BuildDefaultLayout(ImGuiID dockSpace) {
 }
 
 void UI::DrawMainDockspace() {
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGuiViewport* viewport     = ImGui::GetMainViewport();
+    const float    footerHeight = ImGui::GetFrameHeightWithSpacing();
 
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -389,7 +426,8 @@ void UI::DrawMainDockspace() {
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus |
-        ImGuiWindowFlags_NoBackground;
+        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse;
 
     ImGui::Begin("EditorDockspace", nullptr, flags);
 
@@ -400,7 +438,29 @@ void UI::DrawMainDockspace() {
         m_layoutBuilt = true;
     }
 
-    ImGui::DockSpace(dockSpace, ImVec2(0, 0), 0);
+    ImGui::DockSpace(dockSpace, ImVec2(0, -footerHeight), 0);
+
+    ImGui::BeginChild(
+        "DockspaceFooter", ImVec2(0, footerHeight), ImGuiChildFlags_FrameStyle);
+
+    const LogMessage* mostRecentError = nullptr;
+    for (auto message = m_logMessages.rbegin(); message != m_logMessages.rend();
+         ++message) {
+        if (message->level == "ERROR") {
+            mostRecentError = &*message;
+            break;
+        }
+    }
+
+    if (mostRecentError) {
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+        ImGui::Text("[%s] %s",
+                    mostRecentError->level.c_str(),
+                    mostRecentError->message.c_str());
+        ImGui::PopStyleColor();
+    }
+
+    ImGui::EndChild();
 
     ImGui::End();
 }
@@ -509,8 +569,14 @@ void UI::DrawMainMenuBar() {
             ImGui::Text("Syngine Studio\nVersion: %s",
                         SYNGINE_STUDIO_VERSION_STRING);
             ImGui::Separator();
-            ImGui::Text("Licensed under the MIT License");
-            ImGui::TextLinkOpenURL("GitHub",
+            ImGui::Text("Licensed under the MIT License, with licensed "
+                        "technology from:");
+            ImGui::TextLinkOpenURL("Syngine",
+                                   "https://github.com/SentyTek/Syngine");
+            ImGui::SameLine();
+            ImGui::TextLinkOpenURL("ImGui", "https://github.com/ocornut/imgui");
+
+            ImGui::TextLinkOpenURL("Syngine Studio on GitHub",
                                    "https://github.com/SentyTek/"
                                    "SyngineStudio");
             ImGui::Separator();
@@ -636,6 +702,31 @@ void UI::DrawScene() {
                               "%.1f")) {
         }
 
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 150);
+        ImTextureRef reloadShaders = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/reload_shaders")));
+        if (ImGui::ImageButton("reload_shaders", reloadShaders, s)) {
+            Syngine::Core::_ReloadShaders(); // Will do some extra plumbing too
+        }
+        ImGui::SetItemTooltip("Reload Shaders");
+
+        ImGui::SameLine();
+        ImTextureRef reloadMeshes = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/reload_meshes")));
+        if (ImGui::ImageButton("reload_meshes", reloadMeshes, s)) {
+            Syngine::Core::_ReloadChangedAssets(); // Does the extra checks for
+                                                   // changed assets
+        }
+        ImGui::SetItemTooltip("Reload Meshes");
+
+        ImGui::SameLine();
+        ImTextureRef reloadLua = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/reload_lua")));
+        if (ImGui::ImageButton("reload_lua", reloadLua, s)) {
+            Syngine::Core::_ReloadLua(); // Reload the Lua scripts
+        }
+        ImGui::SetItemTooltip("Reload Lua Scripts");
+
         ImGui::SameLine(ImGui::GetContentRegionAvail().x - 20);
         ImTextureRef toolDebug = ImTextureRef(
             IconManager::GetIconImGui(std::string("buttons/debug/toggle")));
@@ -646,7 +737,7 @@ void UI::DrawScene() {
 
         if (ImGui::BeginPopup("DebugSettingsPopup")) {
             Syngine::DebugModes mode = Syngine::Core::GetDebugMode();
-            if (SelectableWithIcon("Wireframes",
+            if (SelectableWithIcon("Physics Wireframes",
                                    "buttons/debug/wireframes",
                                    true,
                                    mode.PhysWireframes)) {
@@ -1152,8 +1243,11 @@ void UI::DrawConsole() {
             ImGui::PopStyleColor();
 
             if (ImGui::BeginPopupContextItem("LogContextMenu")) {
-                if (ImGui::MenuItem("Copy")) {
+                if (ImGui::MenuItem("Copy Message")) {
                     ImGui::SetClipboardText(logMessage.message.c_str());
+                }
+                if (ImGui::MenuItem("Copy Full")) {
+                    ImGui::SetClipboardText(logLine.c_str());
                 }
                 ImGui::EndPopup();
             }
