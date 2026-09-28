@@ -72,10 +72,6 @@ int AppMain(int argc, char* argv[]) {
     ProjectDirectory =
         scl::path::execdir().parentpath().parentpath().parentpath();
 #endif
-    Syngine::Logger::LogF(Syngine::LogLevel::INFO,
-                          true,
-                          "project dir: %s",
-                          scl::path::execdir().cstr());
 
     if (!skipCmake) {
         SynEditor::BackgroundActivities::g_loadingText =

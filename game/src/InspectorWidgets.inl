@@ -404,6 +404,41 @@ class InspectorWidgets {
 
         ImGui::Indent();
 
+        const auto hasChildRigidbody = [](auto&&               self,
+                                          Syngine::GameObject* parent) -> bool {
+            for (Syngine::GameObject* child : parent->GetChildren()) {
+                if (child->GetComponent<Syngine::RigidbodyComponent>() ||
+                    self(self, child)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        if (hasChildRigidbody(hasChildRigidbody, object)) {
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  ImVec4(1.0f, 0.65f, 0.2f, 1.0f));
+            ImGui::TextWrapped("Warning: Children of rigidbodies with "
+                               "rigidbodies are not supported and may break.");
+            ImGui::PopStyleColor();
+        }
+
+        bool hasRigidbodyAncestor = false;
+        for (Syngine::GameObject* parent = object->GetParent(); parent;
+             parent                      = parent->GetParent()) {
+            if (parent->GetComponent<Syngine::RigidbodyComponent>()) {
+                hasRigidbodyAncestor = true;
+                break;
+            }
+        }
+        if (hasRigidbodyAncestor) {
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  ImVec4(1.0f, 0.65f, 0.2f, 1.0f));
+            ImGui::TextWrapped("Warning: This object is a child of another "
+                               "rigidbody. Rigidbody children are not "
+                               "supported and may break.");
+            ImGui::PopStyleColor();
+        }
+
         Syngine::RigidbodyParameters params =
             rigidBodyComp->GetCurrentParameters();
 
@@ -716,8 +751,9 @@ class InspectorWidgets {
                     drawShapeWidget(part.shape, i);
 
                     float* pos = part.position.data();
-                    float* rot =
-                        Syngine::Vector3(part.rotation.toEulerAngles()).data();
+                    float* rot = Syngine::Vector3(part.rotation.toEulerAngles())
+                                     .toDegs()
+                                     .data();
                     if (ImGui::DragFloat3(
                             "Position", pos, 0.1f, -1000.0f, 1000.0f)) {
                         part.position           = { pos[0], pos[1], pos[2] };
@@ -727,7 +763,7 @@ class InspectorWidgets {
                     if (ImGui::DragFloat3(
                             "Rotation", rot, 0.1f, -360.0f, 360.0f)) {
                         part.rotation = Syngine::Quaternion(
-                            Syngine::Vector3(rot[0], rot[1], rot[2]));
+                            Syngine::Vector3(rot[0], rot[1], rot[2]).toRads());
                         params.compoundParts[i] = part;
                         modified                = true;
                     }
@@ -954,8 +990,8 @@ class InspectorWidgets {
 
         ImGui::Indent();
 
-        Syngine::BillboardMode mode        = billboardComp->GetMode();
-        float*                 rot         = billboardComp->GetRot().data();
+        Syngine::BillboardMode mode = billboardComp->GetMode();
+        float*                 rot  = billboardComp->GetRot().toDegs().data();
         std::string            bundlePath  = billboardComp->GetBundlePath();
         std::string            texturePath = billboardComp->GetTexturePath();
 
@@ -981,7 +1017,8 @@ class InspectorWidgets {
             ImGui::EndCombo();
         }
         if (ImGui::DragFloat3("Rotation", rot, 0.1f, -180.0f, 180.0f)) {
-            billboardComp->SetRot({ rot[0], rot[1], rot[2] });
+            Syngine::Math::Vector3 newRot(rot[0], rot[1], rot[2]);
+            billboardComp->SetRot(newRot.toRads());
         }
 
         ImGui::Checkbox("Receive Shadows", &receiveShadows);
