@@ -9,11 +9,15 @@
 #include "UI.hpp"
 #include "Background.h"
 #include "IconManager.hpp"
+#include "SceneControls.h"
 
 #include <Syngine/Syngine.h>
 
 #include <SDL3/SDL.h>
 
+#include "Syngine/Core/Core.h"
+#include "Syngine/Physics/PhysicsManager.h"
+#include "Syngine/Scene/GameObjectRegistry.h"
 #include "bgfx/bgfx.h"
 #include "imgui/backends/imgui_impl_bgfx.hpp"
 #include "imgui/imgui_internal.h"
@@ -318,6 +322,26 @@ void UI::Draw(int frameNum) {
     DrawConsole();
     DrawAssets();
 
+    Syngine::DebugModes debug = Syngine::Core::GetDebugMode();
+    debug.WireframeObjects.clear();
+    if (m_selectedObject) {
+        const auto addObjectAndChildren =
+            [&debug](auto&& self, Syngine::GameObject* object) -> void {
+            if (!object) return;
+            debug.WireframeObjects.push_back(object);
+            for (Syngine::GameObject* child : object->GetChildren()) {
+                self(self, child);
+            }
+        };
+        addObjectAndChildren(addObjectAndChildren, m_selectedObject);
+    }
+    Syngine::Core::SetDebugMode(debug);
+
+    if (m_selectedObject && ImGui::IsKeyDown(ImGuiKey_F) &&
+        !ImGui::GetIO().WantTextInput) {
+        Scene::FocusSelectedObject(*m_selectedObject);
+    }
+
     m_selectedAsset = AssetWindow::m_selectedAsset;
 }
 
@@ -508,6 +532,150 @@ void UI::DrawScene() {
     static bool viewPortHovered = false;
     ImGui::Begin("Scene", nullptr, m_wFlags);
 
+    // Scene controls buttons
+    {
+        ImVec2       s            = ImVec2(16, 16);
+        ImTextureRef toolGrabIcon = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/tools/select")));
+        bool pushed = false;
+        if (m_sceneSettings.tool == Tool::Select) {
+            ImGui::PushStyleColor(
+                ImGuiCol_Button,
+                ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+            pushed = true;
+        }
+        if (ImGui::ImageButton("tool_grab", toolGrabIcon, s)) {
+            m_sceneSettings.tool = Tool::Select;
+        }
+        if (pushed) {
+            ImGui::PopStyleColor();
+            pushed = false;
+        }
+        ImGui::SetItemTooltip("Eyedropper");
+
+        ImGui::SameLine();
+        ImTextureRef toolMoveIcon = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/tools/translate")));
+        if (m_sceneSettings.tool == Tool::Move) {
+            ImGui::PushStyleColor(
+                ImGuiCol_Button,
+                ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+            pushed = true;
+        }
+        if (ImGui::ImageButton("tool_move", toolMoveIcon, s)) {
+            m_sceneSettings.tool = Tool::Move;
+        }
+        if (pushed) {
+            ImGui::PopStyleColor();
+            pushed = false;
+        }
+        ImGui::SetItemTooltip("Move");
+
+        ImGui::SameLine();
+        ImTextureRef toolRotateIcon = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/tools/rotate")));
+        if (m_sceneSettings.tool == Tool::Rotate) {
+            ImGui::PushStyleColor(
+                ImGuiCol_Button,
+                ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+            pushed = true;
+        }
+        if (ImGui::ImageButton("tool_rotate", toolRotateIcon, s)) {
+            m_sceneSettings.tool = Tool::Rotate;
+        }
+        if (pushed) {
+            ImGui::PopStyleColor();
+            pushed = false;
+        }
+        ImGui::SetItemTooltip("Rotate");
+
+        ImGui::SameLine();
+        ImTextureRef toolScaleIcon = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/tools/scale")));
+        if (m_sceneSettings.tool == Tool::Scale) {
+            ImGui::PushStyleColor(
+                ImGuiCol_Button,
+                ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+            pushed = true;
+        }
+        if (ImGui::ImageButton("tool_scale", toolScaleIcon, s)) {
+            m_sceneSettings.tool = Tool::Scale;
+        }
+        if (pushed) {
+            ImGui::PopStyleColor();
+            pushed = false;
+        }
+        ImGui::SetItemTooltip("Scale");
+
+        ImGui::SameLine();
+        ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+        ImGui::SetCursorScreenPos(ImVec2(cursorPos.x + 10, cursorPos.y));
+        ImTextureRef toolGrid = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/grid_unlock")));
+        if (m_sceneSettings.gridSnap) {
+            ImGui::PushStyleColor(
+                ImGuiCol_Button,
+                ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+            pushed = true;
+        }
+        if (ImGui::ImageButton("tool_grid", toolGrid, s)) {
+            m_sceneSettings.gridSnap = !m_sceneSettings.gridSnap;
+        }
+        if (pushed) {
+            ImGui::PopStyleColor();
+            pushed = false;
+        }
+        ImGui::SetItemTooltip("Toggle Grid Snap");
+
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::InputFloat("##snap_amt",
+                              &m_sceneSettings.snapAmount,
+                              0.1f,
+                              1.0f,
+                              "%.1f")) {
+        }
+
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 20);
+        ImTextureRef toolDebug = ImTextureRef(
+            IconManager::GetIconImGui(std::string("buttons/debug/toggle")));
+        if (ImGui::ImageButton("tool_debug", toolDebug, s)) {
+            ImGui::OpenPopup("DebugSettingsPopup");
+        }
+        ImGui::SetItemTooltip("Toggle Debug Settings");
+
+        if (ImGui::BeginPopup("DebugSettingsPopup")) {
+            Syngine::DebugModes mode = Syngine::Core::GetDebugMode();
+            if (SelectableWithIcon("Wireframes",
+                                   "buttons/debug/wireframes",
+                                   true,
+                                   mode.PhysWireframes)) {
+                mode.PhysWireframes = !mode.PhysWireframes;
+                Syngine::Core::SetDebugMode(mode);
+            }
+            if (SelectableWithIcon("CSM Bounds",
+                                   "buttons/debug/shadows",
+                                   true,
+                                   mode.CSMBounds)) {
+                mode.CSMBounds = !mode.CSMBounds;
+                Syngine::Core::SetDebugMode(mode);
+            }
+            if (SelectableWithIcon(
+                    "Gizmos", "buttons/debug/gizmos", true, mode.Gizmos)) {
+                mode.Gizmos = !mode.Gizmos;
+                Syngine::Core::SetDebugMode(mode);
+            }
+            if (SelectableWithIcon("Bounding Boxes",
+                                   "buttons/debug/bounding_boxes",
+                                   true,
+                                   mode.DrawBoundingBoxes)) {
+                mode.DrawBoundingBoxes = !mode.DrawBoundingBoxes;
+                Syngine::Core::SetDebugMode(mode);
+            }
+            ImGui::EndPopup();
+        }
+    }
+
     ImVec2 avail = ImGui::GetContentRegionAvail();
 
     float aspect = Syngine::Renderer::width / (float)Syngine::Renderer::height;
@@ -525,6 +693,24 @@ void UI::DrawScene() {
                  ImVec2(width, height));
 
     viewPortHovered = ImGui::IsItemHovered();
+    if (m_sceneSettings.tool == Tool::Select && viewPortHovered &&
+        ImGui::IsMouseClicked(ImGuiMouseButton_Left) && width > 0.0f &&
+        height > 0.0f && Scene::editorCamera) {
+        const ImVec2                 mousePos = ImGui::GetMousePos();
+        const ImVec2                 imageMin = ImGui::GetItemRectMin();
+        const Syngine::Math::Vector2 screenPoint(
+            (mousePos.x - imageMin.x) * Syngine::Renderer::width / width,
+            (mousePos.y - imageMin.y) * Syngine::Renderer::height / height);
+        Syngine::Math::Ray ray =
+            Scene::editorCamera->ScreenPointToRay(screenPoint);
+        auto hit = Syngine::Core::Get()->GetPhysicsManager()->Raycast(ray);
+        if (hit.hit && hit.object) {
+            m_selectedObject = hit.object;
+        } else {
+            m_selectedObject = nullptr;
+        }
+    }
+
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
         viewPortActive = true;
     } else if (!viewPortHovered) {
@@ -663,68 +849,40 @@ void UI::DrawInspector() {
             ImGui::OpenPopup("AddComponentPopup");
         }
 
-        auto SelectableWithIcon = [](const char* label) {
-            ImVec2 pos  = ImGui::GetCursorScreenPos();
-            ImVec2 size = ImVec2(250.0f, 24.0f);
-
-            std::string lower = label;
-            for (auto& c : lower) c = std::tolower(c);
-            // replace spaces with underscores
-            for (auto& c : lower) {
-                if (c == ' ') c = '_';
-            }
-
-            ImTextureRef icon = ImTextureRef(
-                IconManager::GetIconImGui(std::string("component/") + lower));
-
-            bool clicked =
-                ImGui::Selectable(("##" + lower).c_str(), false, 0, size);
-
-            ImDrawList* draw = ImGui::GetWindowDrawList();
-            draw->AddImage(icon,
-                           ImVec2(pos.x + 4, pos.y + 4),
-                           ImVec2(pos.x + 20, pos.y + 20));
-
-            draw->AddText(ImVec2(pos.x + 24, pos.y + 4),
-                          ImGui::GetColorU32(ImGuiCol_Text),
-                          label);
-
-            return clicked;
-        };
-
         if (ImGui::BeginPopup("AddComponentPopup")) {
-            if (SelectableWithIcon("Transform")) {
+            if (SelectableWithIcon("Transform", "component/transform")) {
                 if (m_selectedObject) {
                     m_selectedObject
                         ->AddComponent<Syngine::TransformComponent>();
                 }
             }
-            if (SelectableWithIcon("Mesh")) {
+            if (SelectableWithIcon("Mesh", "component/mesh")) {
                 if (m_selectedObject) {
                     m_selectedObject->AddComponent<Syngine::MeshComponent>();
                 }
             }
-            if (SelectableWithIcon("Rigidbody")) {
+            if (SelectableWithIcon("Rigidbody", "component/rigidbody")) {
                 if (m_selectedObject) {
                     Syngine::RigidbodyParameters p{};
                     m_selectedObject->AddComponent<Syngine::RigidbodyComponent>(
                         p);
                 }
             }
-            if (SelectableWithIcon("Billboard")) {
+            if (SelectableWithIcon("Billboard", "component/billboard")) {
                 if (m_selectedObject) {
                     m_selectedObject->AddComponent<Syngine::BillboardComponent>(
                         "", "");
                 }
             }
-            if (SelectableWithIcon("Camera")) {
+            if (SelectableWithIcon("Camera", "component/camera")) {
                 if (m_selectedObject) {
                     m_selectedObject->AddComponent<Syngine::CameraComponent>();
                     m_selectedObject->GetComponent<Syngine::CameraComponent>()
                         ->syncToTransform = true;
                 }
             }
-            if (SelectableWithIcon("Player Controller")) {
+            if (SelectableWithIcon("Player Controller",
+                                   "component/player_controller")) {
                 if (m_selectedObject) {
                     m_selectedObject
                         ->AddComponent<Syngine::TransformComponent>();
@@ -734,7 +892,7 @@ void UI::DrawInspector() {
                             ->GetComponent<Syngine::CameraComponent>());
                 }
             }
-            if (SelectableWithIcon("Zone")) {
+            if (SelectableWithIcon("Zone", "component/zone")) {
                 if (m_selectedObject) {
                     m_selectedObject->AddComponent<Syngine::ZoneComponent>(
                         Syngine::ZoneShape::BOX,
@@ -744,7 +902,8 @@ void UI::DrawInspector() {
                         Syngine::Math::Vector3(1.0f, 1.0f, 1.0f));
                 }
             }
-            if (SelectableWithIcon("Directional Light")) {
+            if (SelectableWithIcon("Directional Light",
+                                   "component/directional_light")) {
                 if (m_selectedObject) {
                     m_selectedObject
                         ->AddComponent<Syngine::DirectionalLightComponent>(

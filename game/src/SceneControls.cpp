@@ -136,3 +136,12 @@ void Scene::MakeCamera() {
     cam->SetFarPlane(2000);
     editorCamera = cam;
 }
+
+void Scene::FocusSelectedObject(Syngine::GameObject& gameObject) {
+    if (editorCamera &&
+        gameObject.GetComponent<Syngine::TransformComponent>()) {
+        editorCamera->SetPosition(
+            gameObject.GetComponent<Syngine::TransformComponent>()
+                ->GetPosition());
+    }
+}

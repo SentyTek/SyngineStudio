@@ -20,6 +20,7 @@
 
 namespace SynEditor {
 
+enum class Tool { Select, Move, Rotate, Scale };
 class UI {
     ImGuiWindowFlags m_wFlags =
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
@@ -49,6 +50,51 @@ class UI {
                           const std::string& timestamp);
 
     friend class Syngine::Logger;
+
+    struct SceneSettings {
+        Tool  tool       = Tool::Select;
+        float snapAmount = 0.1f;
+        bool  gridSnap   = false;
+    } m_sceneSettings;
+
+    inline bool SelectableWithIcon(const char* label,
+                                   const char* fileName     = nullptr,
+                                   bool        drawCheckbox = false,
+                                   bool        checked      = false) {
+        ImVec2 pos  = ImGui::GetCursorScreenPos();
+        ImVec2 size = ImVec2(250.0f, 24.0f);
+
+        std::string lower = fileName ? fileName : label;
+        for (auto& c : lower) c = std::tolower(c);
+        // replace spaces with underscores
+        for (auto& c : lower) {
+            if (c == ' ') c = '_';
+        }
+
+        ImTextureRef icon = ImTextureRef(
+            IconManager::GetIconImGui(fileName ? fileName : lower));
+
+        bool clicked =
+            ImGui::Selectable(("##" + lower).c_str(), false, 0, size);
+
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        draw->AddImage(
+            icon, ImVec2(pos.x + 4, pos.y + 4), ImVec2(pos.x + 20, pos.y + 20));
+
+        draw->AddText(ImVec2(pos.x + 24, pos.y + 4),
+                      ImGui::GetColorU32(ImGuiCol_Text),
+                      label);
+
+        if (drawCheckbox) {
+            ImVec2 checkboxPos = ImVec2(pos.x + size.x - 24, pos.y + 4);
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                checkboxPos,
+                ImVec2(checkboxPos.x + 16, checkboxPos.y + 16),
+                checked ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255));
+        }
+
+        return clicked;
+    };
 
   public:
     std::string g_projectName;

@@ -7,6 +7,7 @@
 // ╰──────────────────────────────────────╯
 
 #pragma once
+#include "Syngine/GameObjects/GameObject.h"
 #include <Syngine/Syngine.h>
 
 class Scene {
@@ -17,6 +18,8 @@ class Scene {
     static void HandleMouseScroll(float x, float y);
     static void HandleRMouseButtonUp();
     static void HandleRMouseButtonDown();
+
+    static void FocusSelectedObject(Syngine::GameObject& gameObject);
 
     static void SetSimulate(bool simulate);
 

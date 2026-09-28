@@ -9,6 +9,7 @@
 #include <Syngine/Syngine.h>
 
 #include "Editor.h"
+#include "Syngine/Core/Core.h"
 
 #include <string>
 
@@ -40,6 +41,13 @@ int AppMain(int argc, char* argv[]) {
     // Create game
     Syngine::Core engine(config);
     engine.Initialize(rConfig);
+
+    Syngine::DebugModes debugModes{ .Enabled           = true,
+                                    .PhysWireframes    = true,
+                                    .Gizmos            = true,
+                                    .CSMBounds         = false,
+                                    .DrawBoundingBoxes = false };
+    engine.SetDebugMode(debugModes);
 
     SynEditor::BackgroundActivities::ShowStartupScreen();
 

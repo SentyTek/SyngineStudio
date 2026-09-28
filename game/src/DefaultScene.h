@@ -35,6 +35,37 @@ class DefaultScene {
         t->SetPosition(Vector3(0.f, 0.f, 5.f));
         mug->AddComponent<MeshComponent>("meshes/meshes.spk", "mug.glb", false);
 
+        std::vector<CompoundShapePart> parts;
+        CompoundShapePart              body = {
+            .shape           = PhysicsShapes::CYLINDER,
+            .shapeParameters = { 1.0f, 1.0f, 0.f }, // radius, halfHeight
+            .position        = { 0.f, 0.0f, 0.f },
+            .rotation        = { 0.f, 0.f, 0.f, 1.f } // identity
+        };
+        parts.push_back(body);
+
+        CompoundShapePart handle = {
+            .shape           = PhysicsShapes::CYLINDER,
+            .shapeParameters = { 0.7f, 0.1f, 0.f }, // radius, halfHeight
+            .position        = { 1.0f, 0.f, 0.f },
+            .rotation = { 0.7071067811865476f, 0.f, 0.f, 0.7071067811865476f }
+            // 90 degrees on X axis (normalized)
+        };
+        parts.push_back(handle);
+
+        Syngine::RigidbodyParameters mugParams = {
+            .shape           = Syngine::PhysicsShapes::COMPOUND,
+            .mass            = 1.f,
+            .friction        = 0.7f,
+            .restitution     = 0.02f,
+            .shapeParameters = {}, // Not used for compound
+            .motionType      = JPH::EMotionType::Dynamic,
+            .layer           = Syngine::Layers::MOVING,
+            .compoundParts   = parts
+        };
+
+        mug->AddComponent<RigidbodyComponent>(mugParams);
+
         GameObject& cube = GameObjectRegistry::CreateGameObject("cube");
         cube.AddComponent<TransformComponent>();
         cube.AddComponent<MeshComponent>(
