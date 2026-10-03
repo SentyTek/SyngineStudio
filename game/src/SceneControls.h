@@ -37,21 +37,21 @@ class Scene {
     static void UpdateCamera(MovementBindings& movementBindings);
     static void MakeCamera();
 
-  private:
+    static float cameraSpeed; // Default camera speed
     static struct EditorState {
         static constexpr float DEFAULT_SENSITIVITY = 0.002f;
         static constexpr float DEFAULT_MAX_PITCH   = 3.14f / 2 - 0.01f;
         static constexpr float DEFAULT_EDITOR_SPEED_INCREMENT = 0.5f;
         static constexpr float DEFAULT_MAX_EDITOR_SPEED       = 100.0f;
 
-        float                  cameraSpeed = 3.0f; // Default camera speed
-        Syngine::Math::Vector2 mousePos;           // Current mouse state (x, y)
+        Syngine::Math::Vector2 mousePos; // Current mouse state (x, y)
 
         bool rmbHeld    = false;
         bool mouseState = false;
         bool simulate   = false;
     } editorState;
 
+  private:
     static void _MoveCameraInDirection(const Syngine::Math::Vector3& direction,
                                        float                         speed);
 };

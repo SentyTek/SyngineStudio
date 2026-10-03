@@ -699,8 +699,19 @@ void UI::DrawScene() {
                               &m_sceneSettings.snapAmount,
                               0.1f,
                               1.0f,
-                              "%.1f")) {
+                              "%.3f")) {
         }
+        ImGui::SetItemTooltip("Snap Amount");
+
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        ImGui::DragFloat("Camera Speed",
+                         &Scene::cameraSpeed,
+                         0.1f,
+                         0.0f,
+                         Scene::editorState.DEFAULT_MAX_EDITOR_SPEED,
+                         "%.1f");
+        ImGui::SetItemTooltip("Camera Speed");
 
         ImGui::SameLine(ImGui::GetContentRegionAvail().x - 150);
         ImTextureRef reloadShaders = ImTextureRef(

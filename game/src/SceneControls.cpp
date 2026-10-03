@@ -11,6 +11,7 @@
 
 Syngine::CameraComponent* Scene::editorCamera = nullptr;
 Scene::EditorState        Scene::editorState;
+float                     Scene::cameraSpeed = 3.0f; // Default camera speed
 
 void Scene::_MoveCameraInDirection(const Syngine::Math::Vector3& direction,
                                    float                         speed) {
@@ -23,7 +24,7 @@ void Scene::_MoveCameraInDirection(const Syngine::Math::Vector3& direction,
 }
 
 void Scene::UpdateCamera(MovementBindings& movementBindings) {
-    float realSpeed = editorState.cameraSpeed;
+    float realSpeed = cameraSpeed;
     float deltaTime = Syngine::Core::deltaTime;
 
     if (movementBindings.fast.isPressed()) realSpeed *= 2.0f;
@@ -94,17 +95,17 @@ void Scene::HandleMouseMovement(float x, float y) {
 void Scene::HandleMouseScroll(float x, float y) {
     if (!editorState.simulate) {
         if (y > 0) {
-            editorState.cameraSpeed +=
+            cameraSpeed +=
                 editorState.DEFAULT_EDITOR_SPEED_INCREMENT;
-            if (editorState.cameraSpeed >
+            if (cameraSpeed >
                 editorState.DEFAULT_MAX_EDITOR_SPEED) {
-                editorState.cameraSpeed = editorState.DEFAULT_MAX_EDITOR_SPEED;
+                cameraSpeed = editorState.DEFAULT_MAX_EDITOR_SPEED;
             }
         } else if (y < 0) {
-            editorState.cameraSpeed -=
+            cameraSpeed -=
                 editorState.DEFAULT_EDITOR_SPEED_INCREMENT;
-            if (editorState.cameraSpeed < 0.0f) {
-                editorState.cameraSpeed = 0.0f;
+            if (cameraSpeed < 0.0f) {
+                cameraSpeed = 0.0f;
             }
         }
     }
