@@ -17,6 +17,7 @@
 #include <lib/imgui/imgui.h>
 #include "InspectorWidgets.inl"
 #include "AssetWindow.hpp"
+#include "TransformGizmo.h"
 
 namespace SynEditor {
 
@@ -28,6 +29,8 @@ class UI {
 
     bgfx::TextureHandle  m_logoTexture    = BGFX_INVALID_HANDLE;
     Syngine::GameObject* m_selectedObject = nullptr;
+    Syngine::GameObject* m_gizmoObject    = nullptr;
+    TransformGizmo       m_gizmo;
     AssetInfo*           m_selectedAsset  = nullptr;
 
     bool _DrawHierarchyNode(Syngine::GameObject* object,

@@ -41,6 +41,10 @@ int AppMain(int argc, char* argv[]) {
     Syngine::Core engine(config);
     engine.Initialize(rConfig);
 
+    Syngine::Debug::GizmoOverlay::SetMeshBundle("meshes/gizmos.spk");
+    Syngine::ShaderManager::LoadShader(
+        "shaders/assets_root.spk", "editor_gizmo", Syngine::VIEW_GIZMO);
+
     Syngine::DebugModes debugModes{ .Enabled           = true,
                                     .PhysWireframes    = true,
                                     .Gizmos            = true,
@@ -82,6 +86,8 @@ int AppMain(int argc, char* argv[]) {
 
     SynEditor::BackgroundActivities::g_loadingText = "Importing assets";
     SynEditor::BackgroundActivities::RenderStartupScreen();
+    Syngine::Debug::GizmoOverlay::Preload(
+        SynEditor::TransformGizmo::GetAllGizmoMeshNames());
     editorUi.Setup("SyngineStudio", ProjectDirectory);
     // space illegal in project name
 

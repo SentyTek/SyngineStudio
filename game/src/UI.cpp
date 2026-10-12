@@ -795,9 +795,48 @@ void UI::DrawScene() {
                  ImVec2(width, height));
 
     viewPortHovered = ImGui::IsItemHovered();
-    if (m_sceneSettings.tool == Tool::Select && viewPortHovered &&
-        ImGui::IsMouseClicked(ImGuiMouseButton_Left) && width > 0.0f &&
-        height > 0.0f && Scene::editorCamera) {
+
+    bool gizmoConsumed = false;
+    if (width > 0.0f && height > 0.0f && Scene::editorCamera) {
+        const ImVec2                 mousePos = ImGui::GetMousePos();
+        const ImVec2                 imageMin = ImGui::GetItemRectMin();
+        const Syngine::Math::Vector2 screenPoint(
+            (mousePos.x - imageMin.x) * Syngine::Renderer::width / width,
+            (mousePos.y - imageMin.y) * Syngine::Renderer::height / height);
+
+        if (m_gizmoObject != m_selectedObject ||
+            m_sceneSettings.tool == Tool::Select) {
+            m_gizmo.Cancel(m_gizmoObject);
+            m_gizmoObject = m_selectedObject;
+        }
+
+        if (m_sceneSettings.tool != Tool::Select && m_selectedObject) {
+            TransformGizmo::Mode mode = m_sceneSettings.tool == Tool::Move
+                                            ? TransformGizmo::Mode::Move
+                                        : m_sceneSettings.tool == Tool::Rotate
+                                            ? TransformGizmo::Mode::Rotate
+                                            : TransformGizmo::Mode::Scale;
+            const Syngine::Math::Vector3 camPos =
+                Scene::editorCamera->GetCamera().eye;
+
+            TransformGizmo::Input in;
+            in.ray        = Scene::editorCamera->ScreenPointToRay(screenPoint);
+            in.rayValid   = viewPortHovered && !Scene::editorState.rmbHeld &&
+                            !ImGui::IsMouseDown(ImGuiMouseButton_Right);
+            in.pressed    = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+            in.down       = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+            in.cancel     = ImGui::IsKeyPressed(ImGuiKey_Escape);
+            in.snap       = m_sceneSettings.gridSnap;
+            in.snapAmount = m_sceneSettings.snapAmount;
+
+            gizmoConsumed = m_gizmo.Update(m_selectedObject, mode, camPos, in);
+            m_gizmo.Submit(m_selectedObject, mode, camPos);
+        }
+    }
+
+    if (viewPortHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+        !gizmoConsumed && width > 0.0f && height > 0.0f &&
+        Scene::editorCamera && m_sceneSettings.tool == Tool::Select) {
         const ImVec2                 mousePos = ImGui::GetMousePos();
         const ImVec2                 imageMin = ImGui::GetItemRectMin();
         const Syngine::Math::Vector2 screenPoint(

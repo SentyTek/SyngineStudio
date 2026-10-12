@@ -1,0 +1,10 @@
+$input v_normal
+#include <bgfx_shader.sh>
+
+uniform vec4 u_gizmoColor;
+
+void main() {
+    // Simple headlight so the shapes read as 3D
+    float shade = 0.55 + 0.45 * abs(normalize(v_normal).z);
+    gl_FragColor = vec4(u_gizmoColor.rgb * shade, u_gizmoColor.a);
+}

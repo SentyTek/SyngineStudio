@@ -82,6 +82,7 @@ class InspectorWidgets {
     // so we only resync from the quaternion when the selected object changes.
     inline static Syngine::GameObject* s_rotCacheObject   = nullptr;
     inline static bool                 s_objectLocalState = false;
+    inline static bool                 s_rotEditing       = false;
     inline static Syngine::Vector3     s_rotCacheDegs;
 
     // helper function to create the custom collapsing header
@@ -175,7 +176,8 @@ class InspectorWidgets {
         bool useLocal = ImGui::GetStateStorage()->GetBool(
             ImGui::GetID("Use Local Transform"), true);
 
-        if (s_rotCacheObject != object || s_objectLocalState != useLocal) {
+        if (s_rotCacheObject != object || s_objectLocalState != useLocal ||
+            (useLocal && !s_rotEditing)) {
             s_rotCacheObject   = object;
             s_rotCacheDegs     = tcomp->GetRotationEuler().toDegs();
             s_objectLocalState = useLocal;
@@ -243,6 +245,7 @@ class InspectorWidgets {
                 tcomp->SetWorldRotationEuler(s_rotCacheDegs.toRads());
             }
         }
+        s_rotEditing = ImGui::IsItemActive();
         ImGui::SetItemTooltip("The rotation of the object in Euler angles.");
 
         if (ImGui::DragFloat3(
