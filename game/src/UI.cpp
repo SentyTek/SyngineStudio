@@ -158,8 +158,8 @@ bool UI::_DrawHierarchyNode(Syngine::GameObject* object,
     if (searchText && searchText[0]) {
         ImGui::SetNextItemOpen(true, ImGuiCond_Always);
     }
-    const std::string nodeId = "##GameObject" + std::to_string(object->GetID());
-    bool              open   = ImGui::TreeNodeEx(nodeId.c_str(), nodeFlags);
+    const std::string nodeId   = "##GameObject" + object->GetID().ToString();
+    bool              open     = ImGui::TreeNodeEx(nodeId.c_str(), nodeFlags);
     const ImVec2      nodeMin  = ImGui::GetItemRectMin();
     const ImVec2      nodeSize = ImGui::GetItemRectSize();
     const float       iconSize = 16.0f;
@@ -374,7 +374,7 @@ void UI::Draw(int frameNum) {
 
     if (m_selectedObject && ImGui::IsKeyDown(ImGuiKey_F) &&
         !ImGui::GetIO().WantTextInput) {
-        Scene::FocusSelectedObject(*m_selectedObject);
+        EditorScene::FocusSelectedObject(*m_selectedObject);
     }
 
     m_selectedAsset = AssetWindow::m_selectedAsset;
@@ -706,10 +706,10 @@ void UI::DrawScene() {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0f);
         ImGui::DragFloat("Camera Speed",
-                         &Scene::cameraSpeed,
+                         &EditorScene::cameraSpeed,
                          0.1f,
                          0.0f,
-                         Scene::editorState.DEFAULT_MAX_EDITOR_SPEED,
+                         EditorScene::editorState.DEFAULT_MAX_EDITOR_SPEED,
                          "%.1f");
         ImGui::SetItemTooltip("Camera Speed");
 
@@ -797,7 +797,7 @@ void UI::DrawScene() {
     viewPortHovered = ImGui::IsItemHovered();
 
     bool gizmoConsumed = false;
-    if (width > 0.0f && height > 0.0f && Scene::editorCamera) {
+    if (width > 0.0f && height > 0.0f && EditorScene::editorCamera) {
         const ImVec2                 mousePos = ImGui::GetMousePos();
         const ImVec2                 imageMin = ImGui::GetItemRectMin();
         const Syngine::Math::Vector2 screenPoint(
@@ -817,11 +817,12 @@ void UI::DrawScene() {
                                             ? TransformGizmo::Mode::Rotate
                                             : TransformGizmo::Mode::Scale;
             const Syngine::Math::Vector3 camPos =
-                Scene::editorCamera->GetCamera().eye;
+                EditorScene::editorCamera->GetCamera().eye;
 
             TransformGizmo::Input in;
-            in.ray        = Scene::editorCamera->ScreenPointToRay(screenPoint);
-            in.rayValid   = viewPortHovered && !Scene::editorState.rmbHeld &&
+            in.ray = EditorScene::editorCamera->ScreenPointToRay(screenPoint);
+            in.rayValid   = viewPortHovered &&
+                            !EditorScene::editorState.rmbHeld &&
                             !ImGui::IsMouseDown(ImGuiMouseButton_Right);
             in.pressed    = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
             in.down       = ImGui::IsMouseDown(ImGuiMouseButton_Left);
@@ -836,14 +837,14 @@ void UI::DrawScene() {
 
     if (viewPortHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
         !gizmoConsumed && width > 0.0f && height > 0.0f &&
-        Scene::editorCamera && m_sceneSettings.tool == Tool::Select) {
+        EditorScene::editorCamera && m_sceneSettings.tool == Tool::Select) {
         const ImVec2                 mousePos = ImGui::GetMousePos();
         const ImVec2                 imageMin = ImGui::GetItemRectMin();
         const Syngine::Math::Vector2 screenPoint(
             (mousePos.x - imageMin.x) * Syngine::Renderer::width / width,
             (mousePos.y - imageMin.y) * Syngine::Renderer::height / height);
         Syngine::Math::Ray ray =
-            Scene::editorCamera->ScreenPointToRay(screenPoint);
+            EditorScene::editorCamera->ScreenPointToRay(screenPoint);
         auto hit = Syngine::Core::Get()->GetPhysicsManager()->Raycast(ray);
         if (hit.hit && hit.object) {
             m_selectedObject = hit.object;
@@ -889,8 +890,7 @@ void UI::DrawHierarchy() {
         "##HierarchySearch", "Search", searchBuffer, sizeof(searchBuffer));
 
     // Figure out root objects
-    const std::unordered_map<int, Syngine::GameObject>& allObjects =
-        Syngine::GameObjectRegistry::GetAllGameObjects();
+    const auto& allObjects = Syngine::GameObjectRegistry::GetAllGameObjects();
     std::vector<const Syngine::GameObject*> rootObjects;
     for (auto& [id, object] : allObjects) {
         if (!object.GetParent()) {

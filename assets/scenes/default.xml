@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Scene Version="1.0" Name="test">
+  <uuid>0d7fea47-e7f1-4c04-8eac-384b00c19ffa</uuid>
+  <name>test</name>
+  <persistent>false</persistent>
+  <gameObjects>
+    <gameObject name="mug" type="default" gizmo="none" isActive="true" pID="f0cb1897-9a6c-47b2-9b81-f88b47fc5f2d">
+      <Component bundle="meshes/meshes.spk" type="1" enabled="true" path="mug.glb" receiveShadows="true" hasTextures="false" castShadows="true" receiveSunLight="true"/>
+      <Component type="2" position="0,0,5" rotation="0,0,0,1" scale="1,1,1" enabled="true"/>
+      <Component type="15" mass="1" friction="0.7" motionType="2" restitution="0.02" enabled="true" compoundParts="4:1,1,0:0,0,0:0,0,0,1|4:0.7,0.1,0:1,0,0:0.70711,0,0,0.70711" layer="1" shape="10"/>
+      <Children/>
+    </gameObject>
+    <gameObject name="cube" gizmo="none" type="default" isActive="true" pID="f7263c8e-4941-418f-9b72-148797130280">
+      <Component type="1" bundle="meshes/meshes.spk" path="cube.glb" enabled="true" hasTextures="false" receiveShadows="true" castShadows="true" receiveSunLight="true"/>
+      <Component type="2" position="0,0,0" rotation="0,0,0,1" scale="1,1,1" enabled="true"/>
+      <Component type="15" mass="0" friction="0.7" motionType="2" restitution="0.02" layer="1" shapeParameters="1,1,1" shape="1" enabled="true"/>
+      <Children/>
+    </gameObject>
+    <gameObject name="sun" type="default" gizmo="g_light_sun" isActive="true" pID="3be6e038-7931-48e3-8777-7c451d65fb38">
+      <Component type="7" intensity="1" direction="0.5,0.70711,0.5" color="1,0.956,0.839" enabled="true"/>
+    </gameObject>
+  </gameObjects>
+</Scene>

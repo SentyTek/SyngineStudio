@@ -9,12 +9,12 @@
 #include "SceneControls.h"
 #include <Syngine/Math/Math.hpp>
 
-Syngine::CameraComponent* Scene::editorCamera = nullptr;
-Scene::EditorState        Scene::editorState;
-float                     Scene::cameraSpeed = 3.0f; // Default camera speed
+Syngine::CameraComponent* EditorScene::editorCamera = nullptr;
+EditorScene::EditorState  EditorScene::editorState;
+float EditorScene::cameraSpeed = 3.0f; // Default camera speed
 
-void Scene::_MoveCameraInDirection(const Syngine::Math::Vector3& direction,
-                                   float                         speed) {
+void EditorScene::_MoveCameraInDirection(
+    const Syngine::Math::Vector3& direction, float speed) {
     Syngine::Math::Vector3 pos = editorCamera->GetPosition();
     Syngine::Math::Vector3 moveVec =
         Syngine::Math::Vector3(direction) * (speed * Syngine::Core::deltaTime);
@@ -23,7 +23,7 @@ void Scene::_MoveCameraInDirection(const Syngine::Math::Vector3& direction,
     editorCamera->SetPosition(pos);
 }
 
-void Scene::UpdateCamera(MovementBindings& movementBindings) {
+void EditorScene::UpdateCamera(MovementBindings& movementBindings) {
     float realSpeed = cameraSpeed;
     float deltaTime = Syngine::Core::deltaTime;
 
@@ -65,9 +65,11 @@ void Scene::UpdateCamera(MovementBindings& movementBindings) {
     }
 }
 
-void Scene::SetSimulate(bool simulate) { editorState.simulate = simulate; }
+void EditorScene::SetSimulate(bool simulate) {
+    editorState.simulate = simulate;
+}
 
-void Scene::HandleMouseMovement(float x, float y) {
+void EditorScene::HandleMouseMovement(float x, float y) {
     if (!editorState.simulate && editorState.rmbHeld) {
         // Update camera angles based on mouse movement
         float deltaX = x * editorState.DEFAULT_SENSITIVITY;
@@ -92,18 +94,15 @@ void Scene::HandleMouseMovement(float x, float y) {
     }
 }
 
-void Scene::HandleMouseScroll(float x, float y) {
+void EditorScene::HandleMouseScroll(float x, float y) {
     if (!editorState.simulate) {
         if (y > 0) {
-            cameraSpeed +=
-                editorState.DEFAULT_EDITOR_SPEED_INCREMENT;
-            if (cameraSpeed >
-                editorState.DEFAULT_MAX_EDITOR_SPEED) {
+            cameraSpeed += editorState.DEFAULT_EDITOR_SPEED_INCREMENT;
+            if (cameraSpeed > editorState.DEFAULT_MAX_EDITOR_SPEED) {
                 cameraSpeed = editorState.DEFAULT_MAX_EDITOR_SPEED;
             }
         } else if (y < 0) {
-            cameraSpeed -=
-                editorState.DEFAULT_EDITOR_SPEED_INCREMENT;
+            cameraSpeed -= editorState.DEFAULT_EDITOR_SPEED_INCREMENT;
             if (cameraSpeed < 0.0f) {
                 cameraSpeed = 0.0f;
             }
@@ -111,7 +110,7 @@ void Scene::HandleMouseScroll(float x, float y) {
     }
 }
 
-void Scene::HandleRMouseButtonDown() {
+void EditorScene::HandleRMouseButtonDown() {
     if (!editorState.simulate) {
         editorState.rmbHeld  = true;
         editorState.mousePos = Syngine::Window::GetMousePosition();
@@ -120,7 +119,7 @@ void Scene::HandleRMouseButtonDown() {
     }
 };
 
-void Scene::HandleRMouseButtonUp() {
+void EditorScene::HandleRMouseButtonUp() {
     if (!editorState.simulate) {
         editorState.rmbHeld = false;
         if (Syngine::Core::viewportHovered) {
@@ -132,13 +131,13 @@ void Scene::HandleRMouseButtonUp() {
     }
 };
 
-void Scene::MakeCamera() {
+void EditorScene::MakeCamera() {
     auto* cam = new Syngine::CameraComponent(nullptr);
     cam->SetFarPlane(2000);
     editorCamera = cam;
 }
 
-void Scene::FocusSelectedObject(Syngine::GameObject& gameObject) {
+void EditorScene::FocusSelectedObject(Syngine::GameObject& gameObject) {
     if (editorCamera &&
         gameObject.GetComponent<Syngine::TransformComponent>()) {
         editorCamera->SetPosition(

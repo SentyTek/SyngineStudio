@@ -10,7 +10,7 @@
 #include "Syngine/GameObjects/GameObject.h"
 #include <Syngine/Syngine.h>
 
-class Scene {
+class EditorScene {
   public:
     static Syngine::CameraComponent* editorCamera;
 

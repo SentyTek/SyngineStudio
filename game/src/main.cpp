@@ -56,7 +56,7 @@ int AppMain(int argc, char* argv[]) {
 
     SynEditor::BackgroundActivities::g_loadingText = "Loading default scene";
     SynEditor::BackgroundActivities::RenderStartupScreen();
-    Scene::MakeCamera();
+    EditorScene::MakeCamera();
     DefaultScene defaultScene;
     defaultScene.Load();
 
@@ -96,7 +96,7 @@ int AppMain(int argc, char* argv[]) {
     scl::path imguiini("imgui.ini");
     editorUi.ConfigFileExists = imguiini.exists();
 
-    Scene::MovementBindings movementBindings = {
+    EditorScene::MovementBindings movementBindings = {
         .forwards = InputAction("editor.movement.forwards",
                                 "Move Forward",
                                 "editor",
@@ -151,17 +151,18 @@ int AppMain(int argc, char* argv[]) {
         "editor",
         KeyBinding(Syngine::Scancode::LEFT),
         { .onPressed = [&defaultScene]() { defaultScene.SunDirLeft(); } });
-    InputAction::RegisterAction("editor.rightMouseButtonHandling",
-                                "Editor Mouse",
-                                "editor",
-                                KeyBinding(MouseButton::RIGHT),
-                                { .onPressed  = Scene::HandleRMouseButtonDown,
-                                  .onReleased = Scene::HandleRMouseButtonUp });
+    InputAction::RegisterAction(
+        "editor.rightMouseButtonHandling",
+        "Editor Mouse",
+        "editor",
+        KeyBinding(MouseButton::RIGHT),
+        { .onPressed  = EditorScene::HandleRMouseButtonDown,
+          .onReleased = EditorScene::HandleRMouseButtonUp });
 
-    InputAction::RegisterMouseMoveEvent(Scene::HandleMouseMovement);
-    InputAction::RegisterScrollEvent(Scene::HandleMouseScroll);
+    InputAction::RegisterMouseMoveEvent(EditorScene::HandleMouseMovement);
+    InputAction::RegisterScrollEvent(EditorScene::HandleMouseScroll);
 
-    Renderer::SetActiveCamera(Scene::editorCamera);
+    Renderer::SetActiveCamera(EditorScene::editorCamera);
 
     engine.AddFrameCallback(
         [&editorUi](int frameNum) { editorUi.Draw(frameNum); });
@@ -175,7 +176,7 @@ int AppMain(int argc, char* argv[]) {
             SYN_PROFILE_SCOPE("MainLoop")
             engine.HandleEvents();
             engine.Update();
-            Scene::UpdateCamera(movementBindings);
+            EditorScene::UpdateCamera(movementBindings);
             engine.Render();
         }
     }

@@ -7,11 +7,6 @@
 // ╰──────────────────────────────────────╯
 
 #pragma once
-#include "Syngine/GameObjects/Components/MeshComponent.h"
-#include "Syngine/GameObjects/Components/RigidbodyComponent.h"
-#include "Syngine/GameObjects/Components/TransformComponent.h"
-#include "Syngine/GameObjects/GameObject.h"
-#include "Syngine/Scene/GameObjectRegistry.h"
 #include <Syngine/Syngine.h>
 
 using namespace Syngine;
@@ -23,17 +18,17 @@ class DefaultScene {
 
   public:
     inline void Load() {
-        const sm::Vec3 initialSunDirection =
+        /*const sm::Vec3 initialSunDirection =
             sm::Vec3(45.0f, 45.0f, 0.0f).toRads();
         const sm::Vec3 initialSunColor(1.0f, 0.956f, 0.839f);
         sun = &GameObjectRegistry::CreateGameObject("sun");
         sun->AddComponent<Syngine::DirectionalLightComponent>(
             initialSunDirection, initialSunColor, 1.0f);
 
-        auto mug = &GameObjectRegistry::CreateGameObject("mug");
-        auto t   = mug->AddComponent<TransformComponent>();
+        GameObject& mug = GameObjectRegistry::CreateGameObject("mug");
+        auto        t   = mug.AddComponent<TransformComponent>();
         t->SetPosition(Vector3(0.f, 0.f, 5.f));
-        mug->AddComponent<MeshComponent>("meshes/meshes.spk", "mug.glb", false);
+        mug.AddComponent<MeshComponent>("meshes/meshes.spk", "mug.glb", false);
 
         std::vector<CompoundShapePart> parts;
         CompoundShapePart              body = {
@@ -64,7 +59,7 @@ class DefaultScene {
             .compoundParts   = parts
         };
 
-        mug->AddComponent<RigidbodyComponent>(mugParams);
+        mug.AddComponent<RigidbodyComponent>(mugParams);
 
         GameObject& cube = GameObjectRegistry::CreateGameObject("cube");
         cube.AddComponent<TransformComponent>();
@@ -80,6 +75,20 @@ class DefaultScene {
                                                     JPH::EMotionType::Dynamic,
                                                 .layer = Layers::MOVING };
         cube.AddComponent<RigidbodyComponent>(params);
+
+        SceneInstance s(
+            "test", "test.scene", "arg", Syngine::GenerateUUID(), false);
+        s.AddGameObject(mug.GetID());
+        s.AddGameObject(cube.GetID());
+        s.AddGameObject(sun->GetID());
+        if (!Serializer::Scene::SaveToFile("scene.xml", s)) {
+            Syngine::Logger::Error("Failed to save scene");
+        }*/
+
+        if (!SceneManager::Get().LoadScene("scenes/scenes.spk",
+                                           "default.xml")) {
+            Syngine::Logger::Error("Failed to load scene");
+        }
     };
 
     inline void SunDirLeft() {
