@@ -76,12 +76,11 @@ class DefaultScene {
                                                 .layer = Layers::MOVING };
         cube.AddComponent<RigidbodyComponent>(params);
 
-        SceneInstance s(
-            "test", "test.scene", "arg", Syngine::GenerateUUID(), false);
-        s.AddGameObject(mug.GetID());
-        s.AddGameObject(cube.GetID());
-        s.AddGameObject(sun->GetID());
-        if (!Serializer::Scene::SaveToFile("scene.xml", s)) {
+        SceneInstance scene("Default Scene");
+        scene.AddGameObject(mug);
+        scene.AddGameObject(cube);
+        scene.AddGameObject(*sun);
+        if (!Serializer::Scene::SaveToFile("default.xml", scene)) {
             Syngine::Logger::Error("Failed to save scene");
         }*/
 
